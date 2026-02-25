@@ -38,7 +38,7 @@ def init_requirements_file():
 
 ## 需求记录
 
-<!-- 需求格式: [状态] 优先级 | [分类] 需求描述 | 创建日期 | 处理时间段 | 预计完成日期 | 实际完成日期 | ID -->
+<!-- 需求格式: [状态] 优先级 | [分类] 需求描述 | 创建日期 | 处理时间段 | 预计完成日期 | 实际完成日期 | 进度 | 备注 | 类型 | 预计时长 | ID -->
 
 """
         REQUIREMENTS_FILE.write_text(content, encoding='utf-8')
@@ -61,14 +61,28 @@ def parse_requirements():
     content = REQUIREMENTS_FILE.read_text(encoding='utf-8')
     requirements = []
     
-    # 匹配需求行（新格式包含父标题和处理时间段）
-    # 格式: - [x] **高** | [分类] 描述 | 创建:2026-02-25 | 处理:2026-02-20~2026-02-28 | 预计:2026-02-28 | 完成:未完成 | ID:abc123
-    pattern = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 处理:(\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}|待定) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| ID:(\w+)'
+    # 最新格式 v5（包含进度、备注、类型、预计时长、实际时长）:
+    # - [x] **高** | [分类] 描述 | 创建:2026-02-25 | 处理:2026-02-20~2026-02-28 | 预计:2026-02-28 | 完成:未完成 | 进度:3 | 备注:xxx | 类型:normal | 预计:2 | 实际:1.5 | ID:abc123
+    pattern_v5 = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 处理:(\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}|待定) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| 进度:(\d) \| 备注:(.+?) \| 类型:(\w+) \| 预计:([\d.]+) \| 实际:([\d.]+) \| ID:(\w+)'
     
-    # 兼容旧格式（没有处理时间段）
-    old_pattern = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| ID:(\w+)'
+    # v4 格式（包含进度、备注、类型、预计时长，但没有实际时长）:
+    # - [x] **高** | [分类] 描述 | 创建:2026-02-25 | 处理:2026-02-20~2026-02-28 | 预计:2026-02-28 | 完成:未完成 | 进度:3 | 备注:xxx | 类型:normal | 时长:2 | ID:abc123
+    pattern_v4 = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 处理:(\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}|待定) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| 进度:(\d) \| 备注:(.+?) \| 类型:(\w+) \| 时长:([\d.]+) \| ID:(\w+)'
     
-    for match in re.finditer(pattern, content):
+    # v3 格式（包含进度、备注、类型，但没有时长）:
+    # - [x] **高** | [分类] 描述 | 创建:2026-02-25 | 处理:2026-02-20~2026-02-28 | 预计:2026-02-28 | 完成:未完成 | 进度:3 | 备注:xxx | 类型:normal | ID:abc123
+    pattern_v3 = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 处理:(\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}|待定) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| 进度:(\d) \| 备注:(.+?) \| 类型:(\w+) \| ID:(\w+)'
+    
+    # 旧格式（没有进度、备注、类型）
+    pattern_v2 = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 处理:(\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}|待定) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| ID:(\w+)'
+    
+    # 更旧格式（没有处理时间段）
+    pattern_v1 = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| ID:(\w+)'
+    
+    matched_ids = set()
+    
+    # 先匹配最新格式 v5（包含预计时长和实际时长）
+    for match in re.finditer(pattern_v5, content):
         completed = match.group(1) == 'x'
         priority = match.group(2)
         category = match.group(3)
@@ -77,7 +91,14 @@ def parse_requirements():
         work_period = match.group(6)
         due_date = match.group(7)
         completed_date = match.group(8)
-        req_id = match.group(9)
+        progress = int(match.group(9))
+        notes = match.group(10) if match.group(10) != '-' else ''
+        req_type = match.group(11)
+        estimated_hours = float(match.group(12))
+        actual_hours = float(match.group(13))
+        req_id = match.group(14)
+        
+        matched_ids.add(req_id)
         
         # 解析处理时间段
         work_start = ''
@@ -108,15 +129,184 @@ def parse_requirements():
             'work_end': work_end,
             'due_date': due_date,
             'completed_date': completed_date,
-            'completed': completed
+            'completed': completed,
+            'progress': progress,
+            'notes': notes,
+            'req_type': req_type,
+            'estimated_hours': estimated_hours,
+            'actual_hours': actual_hours
         })
     
-    # 处理旧格式数据
-    matched_ids = [r['id'] for r in requirements]
-    for match in re.finditer(old_pattern, content):
+    # 匹配 v4 格式（包含时长，但没有实际时长）
+    for match in re.finditer(pattern_v4, content):
+        req_id = match.group(13)
+        if req_id in matched_ids:
+            continue
+        completed = match.group(1) == 'x'
+        priority = match.group(2)
+        category = match.group(3)
+        description = match.group(4)
+        created_date = match.group(5)
+        work_period = match.group(6)
+        due_date = match.group(7)
+        completed_date = match.group(8)
+        progress = int(match.group(9))
+        notes = match.group(10) if match.group(10) != '-' else ''
+        req_type = match.group(11)
+        estimated_hours = float(match.group(12))
+        req_id = match.group(13)
+        
+        matched_ids.add(req_id)
+        
+        # 解析处理时间段
+        work_start = ''
+        work_end = ''
+        if work_period != '待定' and '~' in work_period:
+            parts = work_period.split('~')
+            work_start = parts[0]
+            work_end = parts[1]
+        
+        # 根据完成状态确定状态
+        if completed:
+            status = '已完成'
+        elif completed_date == '已取消':
+            status = '已取消'
+        elif completed_date == '未完成' and due_date != '待定':
+            status = '进行中'
+        else:
+            status = '待处理'
+        
+        requirements.append({
+            'id': req_id,
+            'category': category,
+            'description': description,
+            'priority': priority,
+            'status': status,
+            'created_date': created_date,
+            'work_start': work_start,
+            'work_end': work_end,
+            'due_date': due_date,
+            'completed_date': completed_date,
+            'completed': completed,
+            'progress': progress,
+            'notes': notes,
+            'req_type': req_type,
+            'estimated_hours': estimated_hours
+        })
+    
+    # 匹配 v3 格式（没有时长字段）
+    for match in re.finditer(pattern_v3, content):
+        req_id = match.group(12)
+        if req_id in matched_ids:
+            continue
+        matched_ids.add(req_id)
+        completed = match.group(1) == 'x'
+        priority = match.group(2)
+        category = match.group(3)
+        description = match.group(4)
+        created_date = match.group(5)
+        work_period = match.group(6)
+        due_date = match.group(7)
+        completed_date = match.group(8)
+        progress = int(match.group(9))
+        notes = match.group(10) if match.group(10) != '-' else ''
+        req_type = match.group(11)
+        req_id = match.group(12)
+        
+        matched_ids.add(req_id)
+        
+        # 解析处理时间段
+        work_start = ''
+        work_end = ''
+        if work_period != '待定' and '~' in work_period:
+            parts = work_period.split('~')
+            work_start = parts[0]
+            work_end = parts[1]
+        
+        # 根据完成状态确定状态
+        if completed:
+            status = '已完成'
+        elif completed_date == '已取消':
+            status = '已取消'
+        elif completed_date == '未完成' and due_date != '待定':
+            status = '进行中'
+        else:
+            status = '待处理'
+        
+        requirements.append({
+            'id': req_id,
+            'category': category,
+            'description': description,
+            'priority': priority,
+            'status': status,
+            'created_date': created_date,
+            'work_start': work_start,
+            'work_end': work_end,
+            'due_date': due_date,
+            'completed_date': completed_date,
+            'completed': completed,
+            'progress': progress,
+            'notes': notes,
+            'req_type': req_type
+        })
+    
+    # 匹配 v2 格式
+    for match in re.finditer(pattern_v2, content):
+        req_id = match.group(9)
+        if req_id in matched_ids:
+            continue
+        matched_ids.add(req_id)
+        
+        completed = match.group(1) == 'x'
+        priority = match.group(2)
+        category = match.group(3)
+        description = match.group(4)
+        created_date = match.group(5)
+        work_period = match.group(6)
+        due_date = match.group(7)
+        completed_date = match.group(8)
+        
+        # 解析处理时间段
+        work_start = ''
+        work_end = ''
+        if work_period != '待定' and '~' in work_period:
+            parts = work_period.split('~')
+            work_start = parts[0]
+            work_end = parts[1]
+        
+        # 根据完成状态确定状态
+        if completed:
+            status = '已完成'
+        elif completed_date == '已取消':
+            status = '已取消'
+        elif completed_date == '未完成' and due_date != '待定':
+            status = '进行中'
+        else:
+            status = '待处理'
+        
+        requirements.append({
+            'id': req_id,
+            'category': category,
+            'description': description,
+            'priority': priority,
+            'status': status,
+            'created_date': created_date,
+            'work_start': work_start,
+            'work_end': work_end,
+            'due_date': due_date,
+            'completed_date': completed_date,
+            'completed': completed,
+            'progress': 0,
+            'notes': '',
+            'req_type': 'normal'
+        })
+    
+    # 匹配 v1 格式
+    for match in re.finditer(pattern_v1, content):
         req_id = match.group(8)
         if req_id in matched_ids:
             continue
+        matched_ids.add(req_id)
             
         completed = match.group(1) == 'x'
         priority = match.group(2)
@@ -146,19 +336,22 @@ def parse_requirements():
             'work_end': '',
             'due_date': due_date,
             'completed_date': completed_date,
-            'completed': completed
+            'completed': completed,
+            'progress': 0,
+            'notes': '',
+            'req_type': 'normal'
         })
     
     return requirements
 
 
 def save_requirements(requirements):
-    """保存需求列表到 Markdown 文件"""
+    """保存需求列表到 Markdown 文件（v5 格式，包含预计时长和实际时长）"""
     content = """# 工作需求列表
 
 ## 需求记录
 
-<!-- 需求格式: [状态] 优先级 | [分类] 需求描述 | 创建日期 | 处理时间段 | 预计完成日期 | 实际完成日期 | ID -->
+<!-- 需求格式: [状态] 优先级 | [分类] 需求描述 | 创建日期 | 处理时间段 | 预计完成日期 | 实际完成日期 | 进度 | 备注 | 类型 | 预计时长 | 实际时长 | ID -->
 
 """
     for req in requirements:
@@ -173,7 +366,14 @@ def save_requirements(requirements):
         else:
             work_period = '待定'
         
-        line = f"- [{checkbox}] **{req['priority']}** | [{category}] {req['description']} | 创建:{req['created_date']} | 处理:{work_period} | 预计:{req['due_date']} | 完成:{req['completed_date']} | ID:{req['id']}\n"
+        # 字段
+        progress = req.get('progress', 0)
+        notes = req.get('notes', '') or '-'
+        req_type = req.get('req_type', 'normal')
+        estimated_hours = req.get('estimated_hours', 1)  # 默认1小时
+        actual_hours = req.get('actual_hours', 0)  # 实际工作时长
+        
+        line = f"- [{checkbox}] **{req['priority']}** | [{category}] {req['description']} | 创建:{req['created_date']} | 处理:{work_period} | 预计:{req['due_date']} | 完成:{req['completed_date']} | 进度:{progress} | 备注:{notes} | 类型:{req_type} | 预计:{estimated_hours} | 实际:{actual_hours} | ID:{req['id']}\n"
         content += line
     
     REQUIREMENTS_FILE.write_text(content, encoding='utf-8')
@@ -515,7 +715,13 @@ def get_requirements():
             'work_period': work_period,
             'expected_date': req.get('due_date', '待定'),
             'completion_date': req.get('completed_date', '未完成'),
-            'completed': req.get('completed', False)
+            'completed': req.get('completed', False),
+            # 新增字段
+            'progress': req.get('progress', 0),
+            'notes': req.get('notes', ''),
+            'req_type': req.get('req_type', 'normal'),
+            'estimated_hours': req.get('estimated_hours', 1),  # 预计时长（小时）
+            'actual_hours': req.get('actual_hours', 0)  # 实际时长（小时）
         })
     return jsonify(result)
 
@@ -551,7 +757,13 @@ def add_requirement():
         'work_end': work_end,
         'due_date': data.get('expected_date', data.get('due_date', '待定')),
         'completed_date': '未完成',
-        'completed': False
+        'completed': False,
+        # 新增字段
+        'progress': data.get('progress', 0),
+        'notes': data.get('notes', ''),
+        'req_type': data.get('req_type', 'normal'),
+        'estimated_hours': data.get('estimated_hours', 1),  # 预计时长
+        'actual_hours': data.get('actual_hours', 0)  # 实际时长
     }
     
     requirements.append(new_req)
@@ -612,6 +824,12 @@ def update_requirement(req_id):
                 'work_start': work_start if work_start else req.get('work_start', ''),
                 'work_end': work_end if work_end else req.get('work_end', ''),
                 'due_date': data.get('expected_date', data.get('due_date', req['due_date'])),
+                # 新增字段
+                'progress': data.get('progress', req.get('progress', 0)),
+                'notes': data.get('notes', req.get('notes', '')),
+                'req_type': data.get('req_type', req.get('req_type', 'normal')),
+                'estimated_hours': data.get('estimated_hours', req.get('estimated_hours', 1)),  # 预计时长
+                'actual_hours': data.get('actual_hours', req.get('actual_hours', 0)),  # 实际时长
             })
             
             if status == '已完成':
@@ -685,7 +903,13 @@ def get_overdue_requirements(date_str):
                     'expected_date': due_date_str,
                     'completion_date': req.get('completed_date', '未完成'),
                     'completed': req.get('completed', False),
-                    'overdue_days': overdue_days  # 延期天数
+                    'overdue_days': overdue_days,  # 延期天数
+                    # 新增字段
+                    'progress': req.get('progress', 0),
+                    'notes': req.get('notes', ''),
+                    'req_type': req.get('req_type', 'normal'),
+                    'estimated_hours': req.get('estimated_hours', 1),
+                    'actual_hours': req.get('actual_hours', 0)
                 })
         except ValueError:
             continue
@@ -715,6 +939,10 @@ def get_requirements_in_period(date_str):
         # 跳过已完成或已取消的需求
         if req.get('status') in ['已完成', '已取消']:
             continue
+        
+        # 跳过长期需求（长期需求单独显示）
+        if req.get('req_type') == 'long_term':
+            continue
             
         work_start = req.get('work_start', '')
         work_end = req.get('work_end', '')
@@ -736,7 +964,13 @@ def get_requirements_in_period(date_str):
                         'work_period': work_period,
                         'expected_date': req.get('due_date', '待定'),
                         'completion_date': req.get('completed_date', '未完成'),
-                        'completed': req.get('completed', False)
+                        'completed': req.get('completed', False),
+                        # 新增字段
+                        'progress': req.get('progress', 0),
+                        'notes': req.get('notes', ''),
+                        'req_type': req.get('req_type', 'normal'),
+                        'estimated_hours': req.get('estimated_hours', 1),
+                        'actual_hours': req.get('actual_hours', 0)
                     })
             except ValueError:
                 continue

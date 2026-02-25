@@ -68,6 +68,87 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1a1a1a; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        /* 进度条样式 */
+        .progress-bar { display: flex; gap: 4px; }
+        .progress-node { width: 20px; height: 20px; border: 2px solid #444; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+        .progress-node:hover { border-color: #666; }
+        .progress-node.filled { background: linear-gradient(135deg, #4ade80, #22c55e); border-color: #22c55e; }
+        .progress-node.filled-1 { background: linear-gradient(135deg, #f87171, #ef4444); border-color: #ef4444; }
+        .progress-node.filled-2 { background: linear-gradient(135deg, #fb923c, #f97316); border-color: #f97316; }
+        .progress-node.filled-3 { background: linear-gradient(135deg, #fbbf24, #f59e0b); border-color: #f59e0b; }
+        .progress-node.filled-4 { background: linear-gradient(135deg, #a3e635, #84cc16); border-color: #84cc16; }
+        .progress-node.filled-5 { background: linear-gradient(135deg, #4ade80, #22c55e); border-color: #22c55e; }
+        .progress-bar-mini { display: flex; gap: 2px; }
+        .progress-node-mini { width: 12px; height: 12px; border: 1px solid #444; border-radius: 2px; }
+        .progress-node-mini.filled { border-color: #22c55e; }
+        /* 计时器样式 */
+        .timer-display { 
+            display: inline-flex; 
+            align-items: center; 
+            background: #1a1a2e; 
+            padding: 4px 10px; 
+            border-radius: 6px; 
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+            font-weight: bold;
+            border: 1px solid #3b82f6;
+        }
+        .timer-display span { color: #3b82f6; }
+        .timer-warning { color: #f59e0b !important; }
+        .timer-overtime { color: #ef4444 !important; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+        .timer-active { 
+            border-left-color: #3b82f6 !important; 
+            background: linear-gradient(90deg, rgba(59,130,246,0.1) 0%, transparent 100%);
+            animation: pulse-border 2s infinite;
+        }
+        @keyframes pulse-border { 
+            0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
+            50% { box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
+        }
+        /* 需求类型标签 */
+        .type-badge { font-size: 10px; padding: 2px 6px; border-radius: 3px; margin-left: 8px; }
+        .type-normal { background: #333; color: #888; }
+        .type-long_term { background: #312e81; color: #818cf8; }
+        /* 长期需求区块 */
+        .long-term-section { background: #1a1a2e; border: 1px solid #312e81; border-radius: 12px; }
+        .long-term-section h3 { color: #818cf8; }
+        /* 日历样式 */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .calendar-header { text-align: center; padding: 10px; color: #666; font-weight: 600; font-size: 0.85rem; }
+        .calendar-day { 
+            min-height: 100px; 
+            background: #161616; 
+            border: 1px solid #2a2a2a; 
+            border-radius: 8px; 
+            padding: 8px; 
+            cursor: pointer; 
+            transition: all 0.2s;
+            position: relative;
+        }
+        .calendar-day:hover { border-color: #444; transform: translateY(-2px); }
+        .calendar-day.other-month { opacity: 0.4; }
+        .calendar-day.today { border-color: #818cf8; box-shadow: 0 0 0 1px #818cf8; }
+        .calendar-day .day-number { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; }
+        .calendar-day .task-count { font-size: 0.75rem; color: #888; }
+        .calendar-day .task-dots { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
+        .calendar-day .task-dot { width: 8px; height: 8px; border-radius: 2px; }
+        /* 工作量指示 */
+        .workload-light { background: linear-gradient(135deg, #0d3320 0%, #161616 100%); border-color: #22c55e !important; }
+        .workload-normal { background: linear-gradient(135deg, #1e3a5f 0%, #161616 100%); border-color: #3b82f6 !important; }
+        .workload-busy { background: linear-gradient(135deg, #422006 0%, #161616 100%); border-color: #f59e0b !important; }
+        .workload-overload { background: linear-gradient(135deg, #450a0a 0%, #161616 100%); border-color: #ef4444 !important; }
+        .workload-indicator { position: absolute; top: 4px; right: 4px; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; }
+        .workload-indicator.light { background: #166534; color: #4ade80; }
+        .workload-indicator.normal { background: #1d4ed8; color: #60a5fa; }
+        .workload-indicator.busy { background: #92400e; color: #fbbf24; }
+        .workload-indicator.overload { background: #991b1b; color: #fca5a5; }
+        /* 日历导航 */
+        .calendar-nav { display: flex; align-items: center; gap: 16px; }
+        .calendar-nav button { background: #333; border: none; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+        .calendar-nav button:hover { background: #444; }
+        /* 时长输入 */
+        .duration-input { width: 80px; text-align: center; }
     </style>
 </head>
 <body>
@@ -78,6 +159,7 @@
                 <h1 style="font-size: 1.4rem; font-weight: 600; color: #fff;">📋 工作需求管理</h1>
                 <nav style="display: flex; gap: 8px;">
                     <div class="nav-tab" :class="{active: currentView === 'today'}" @click="currentView = 'today'">今日任务</div>
+                    <div class="nav-tab" :class="{active: currentView === 'calendar'}" @click="currentView = 'calendar'">📅 日历</div>
                     <div class="nav-tab" :class="{active: currentView === 'all'}" @click="currentView = 'all'">全部需求</div>
                     <div class="nav-tab" :class="{active: currentView === 'bookmarks'}" @click="currentView = 'bookmarks'">🔖 书签</div>
                     <div class="nav-tab" :class="{active: currentView === 'markdown'}" @click="currentView = 'markdown'">Markdown</div>
@@ -107,10 +189,45 @@
                     </div>
                 </div>
 
+                <!-- 长期需求区块 -->
+                <div v-if="longTermRequirements.length > 0" class="long-term-section" style="padding: 16px; margin-bottom: 20px;">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 12px;">🎯 长期需求 ({{ longTermRequirements.length }})</h3>
+                    <div v-for="task in longTermRequirements" :key="task.id" class="task-item" :class="task.priority" style="background: #1a1a2e; border-color: #312e81;">
+                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                            <div class="checkbox" :class="{checked: task.status === 'completed'}" @click="toggleTaskCompletion(task)"></div>
+                            <div style="flex: 1;">
+                                <div :class="{'completed-task': task.status === 'completed'}">
+                                    <span class="badge" :class="'priority-' + task.priority" style="margin-right: 8px;">{{ task.priority === 'high' ? '高' : task.priority === 'medium' ? '中' : '低' }}</span>
+                                    <strong>{{ task.title }}</strong>
+                                    <span style="color: #666; margin-left: 8px;">[{{ task.category }}]</span>
+                                    <span class="type-badge type-long_term">长期</span>
+                                </div>
+                                <!-- 迷你进度条 -->
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+                                    <div class="progress-bar-mini">
+                                        <div v-for="i in 5" :key="i" 
+                                            class="progress-node-mini" 
+                                            :class="{'filled': i <= (task.progress || 0)}"
+                                            :style="{background: i <= (task.progress || 0) ? (task.progress === 1 ? '#ef4444' : task.progress === 2 ? '#f97316' : task.progress === 3 ? '#f59e0b' : task.progress === 4 ? '#84cc16' : '#22c55e') : 'transparent'}"
+                                            @click.stop="updateProgress(task, task.progress === i ? i - 1 : i)">
+                                        </div>
+                                    </div>
+                                    <span style="font-size: 0.75rem; color: #818cf8;">{{ task.progress || 0 }}/5</span>
+                                    <span v-if="task.notes" style="font-size: 0.75rem; color: #666; margin-left: 8px;" :title="task.notes">📝 {{ task.notes.substring(0, 20) }}{{ task.notes.length > 20 ? '...' : '' }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            <button class="btn btn-dark" style="padding: 6px 12px; font-size: 0.85rem;" @click="editRequirement(task)">编辑</button>
+                            <button class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #2a2a2a; color: #888;" @click="deleteRequirement(task.id)">删除</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 延单任务（超过预期完成日期但未完成） -->
                 <div v-if="overdueTasks.length > 0" class="card" style="padding: 16px; margin-bottom: 20px; border-color: #ef4444;">
                     <h3 style="font-size: 0.9rem; color: #ef4444; margin-bottom: 12px;">🚨 延单任务 ({{ overdueTasks.length }})</h3>
-                    <div v-for="task in overdueTasks" :key="task.id" class="task-item" :class="task.priority" style="border-left-color: #ef4444;">
+                    <div v-for="task in overdueTasks" :key="task.id" class="task-item" :class="[task.priority, {'timer-active': activeTimer && activeTimer.taskId === task.id}]" style="border-left-color: #ef4444;">
                         <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
                             <div class="checkbox" :class="{checked: task.completed}" @click="toggleTaskCompletion(task)"></div>
                             <div style="flex: 1;">
@@ -122,9 +239,53 @@
                                 <div style="font-size: 0.85rem; color: #ef4444; margin-top: 4px;">
                                     ⚠️ 已延期 {{ task.overdue_days }} 天 | 预计完成: {{ task.expected_date }}
                                 </div>
+                                <!-- 预计时长和工作时长显示 -->
+                                <div style="display: flex; align-items: center; gap: 12px; margin-top: 6px; flex-wrap: wrap;">
+                                    <span style="font-size: 0.8rem; color: #f59e0b;">⏱️ 预计: {{ task.estimated_hours || 1 }}h</span>
+                                    <span v-if="task.actual_hours" style="font-size: 0.8rem; color: #3b82f6;">📊 已用: {{ task.actual_hours.toFixed(1) }}h</span>
+                                    <!-- 计时器显示 -->
+                                    <div v-if="activeTimer && activeTimer.taskId === task.id" class="timer-display" :style="timerPaused ? 'border-color: #f59e0b' : ''">
+                                        <span v-if="timerPaused" style="color: #f59e0b;">⏸ 已暂停 | </span>
+                                        <span :class="{'timer-warning': timerRemaining <= 300 && !timerPaused, 'timer-overtime': timerRemaining < 0}">
+                                            {{ timerRemaining >= 0 ? '剩余' : '超时' }}: {{ formatTimerDisplay(Math.abs(timerRemaining)) }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <!-- 进度条和备注 -->
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+                                    <div class="progress-bar-mini">
+                                        <div v-for="i in 5" :key="i" 
+                                            class="progress-node-mini" 
+                                            :class="{'filled': i <= (task.progress || 0)}"
+                                            :style="{background: i <= (task.progress || 0) ? (task.progress === 1 ? '#ef4444' : task.progress === 2 ? '#f97316' : task.progress === 3 ? '#f59e0b' : task.progress === 4 ? '#84cc16' : '#22c55e') : 'transparent'}"
+                                            @click.stop="updateProgress(task, task.progress === i ? i - 1 : i)">
+                                        </div>
+                                    </div>
+                                    <span style="font-size: 0.75rem; color: #888;">{{ task.progress || 0 }}/5</span>
+                                    <span v-if="task.notes" style="font-size: 0.75rem; color: #666; margin-left: 8px;" :title="task.notes">📝 {{ task.notes.substring(0, 20) }}{{ task.notes.length > 20 ? '...' : '' }}</span>
+                                </div>
                             </div>
                         </div>
-                        <button class="btn btn-dark" style="padding: 6px 12px; font-size: 0.85rem;" @click="editRequirement(task)">编辑</button>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <!-- 计时器按钮 -->
+                            <button v-if="!activeTimer || activeTimer.taskId !== task.id" 
+                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #059669; color: white;" 
+                                @click="startTimer(task)">▶ 开始</button>
+                            <!-- 暂停按钮（计时中且未暂停时显示） -->
+                            <button v-if="activeTimer && activeTimer.taskId === task.id && !timerPaused" 
+                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #f59e0b; color: white;" 
+                                @click="pauseTimer()">⏸ 暂停</button>
+                            <!-- 继续按钮（计时中且已暂停时显示） -->
+                            <button v-if="activeTimer && activeTimer.taskId === task.id && timerPaused" 
+                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #059669; color: white;" 
+                                @click="resumeTimer()">▶ 继续</button>
+                            <!-- 停止按钮（计时中时显示） -->
+                            <button v-if="activeTimer && activeTimer.taskId === task.id" 
+                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #dc2626; color: white;" 
+                                @click="stopTimer(task)">⏹ 结束</button>
+                            <button class="btn btn-dark" style="padding: 6px 12px; font-size: 0.85rem;" @click="editRequirement(task)">编辑</button>
+                            <button class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #2a2a2a; color: #888;" @click="deleteRequirement(task.id)">删除</button>
+                        </div>
                     </div>
                 </div>
 
@@ -134,7 +295,7 @@
                     <div v-if="periodTasks.length === 0" style="text-align: center; padding: 40px; color: #555;">
                         当日没有处理中的需求
                     </div>
-                    <div v-for="task in periodTasks" :key="task.id" class="task-item" :class="task.priority">
+                    <div v-for="task in periodTasks" :key="task.id" class="task-item" :class="[task.priority, {'timer-active': activeTimer && activeTimer.taskId === task.id}]">
                         <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
                             <div class="checkbox" :class="{checked: task.completed}" @click="toggleTaskCompletion(task)"></div>
                             <div style="flex: 1;">
@@ -146,9 +307,53 @@
                                 <div style="font-size: 0.85rem; color: #555; margin-top: 4px;">
                                     处理期间: {{ task.work_period || '待定' }} | 预计完成: {{ task.expected_date }}
                                 </div>
+                                <!-- 预计时长和工作时长显示 -->
+                                <div style="display: flex; align-items: center; gap: 12px; margin-top: 6px; flex-wrap: wrap;">
+                                    <span style="font-size: 0.8rem; color: #f59e0b;">⏱️ 预计: {{ task.estimated_hours || 1 }}h</span>
+                                    <span v-if="task.actual_hours" style="font-size: 0.8rem; color: #3b82f6;">📊 已用: {{ task.actual_hours.toFixed(1) }}h</span>
+                                    <!-- 计时器显示 -->
+                                    <div v-if="activeTimer && activeTimer.taskId === task.id" class="timer-display" :style="timerPaused ? 'border-color: #f59e0b' : ''">
+                                        <span v-if="timerPaused" style="color: #f59e0b;">⏸ 已暂停 | </span>
+                                        <span :class="{'timer-warning': timerRemaining <= 300 && !timerPaused, 'timer-overtime': timerRemaining < 0}">
+                                            {{ timerRemaining >= 0 ? '剩余' : '超时' }}: {{ formatTimerDisplay(Math.abs(timerRemaining)) }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <!-- 进度条和备注 -->
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+                                    <div class="progress-bar-mini">
+                                        <div v-for="i in 5" :key="i" 
+                                            class="progress-node-mini" 
+                                            :class="{'filled': i <= (task.progress || 0)}"
+                                            :style="{background: i <= (task.progress || 0) ? (task.progress === 1 ? '#ef4444' : task.progress === 2 ? '#f97316' : task.progress === 3 ? '#f59e0b' : task.progress === 4 ? '#84cc16' : '#22c55e') : 'transparent'}"
+                                            @click.stop="updateProgress(task, task.progress === i ? i - 1 : i)">
+                                        </div>
+                                    </div>
+                                    <span style="font-size: 0.75rem; color: #888;">{{ task.progress || 0 }}/5</span>
+                                    <span v-if="task.notes" style="font-size: 0.75rem; color: #666; margin-left: 8px;" :title="task.notes">📝 {{ task.notes.substring(0, 20) }}{{ task.notes.length > 20 ? '...' : '' }}</span>
+                                </div>
                             </div>
                         </div>
-                        <button class="btn btn-dark" style="padding: 6px 12px; font-size: 0.85rem;" @click="editRequirement(task)">编辑</button>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <!-- 计时器按钮 -->
+                            <button v-if="!activeTimer || activeTimer.taskId !== task.id" 
+                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #059669; color: white;" 
+                                @click="startTimer(task)">▶ 开始</button>
+                            <!-- 暂停按钮（计时中且未暂停时显示） -->
+                            <button v-if="activeTimer && activeTimer.taskId === task.id && !timerPaused" 
+                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #f59e0b; color: white;" 
+                                @click="pauseTimer()">⏸ 暂停</button>
+                            <!-- 继续按钮（计时中且已暂停时显示） -->
+                            <button v-if="activeTimer && activeTimer.taskId === task.id && timerPaused" 
+                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #059669; color: white;" 
+                                @click="resumeTimer()">▶ 继续</button>
+                            <!-- 停止按钮（计时中时显示） -->
+                            <button v-if="activeTimer && activeTimer.taskId === task.id" 
+                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #dc2626; color: white;" 
+                                @click="stopTimer(task)">⏹ 结束</button>
+                            <button class="btn btn-dark" style="padding: 6px 12px; font-size: 0.85rem;" @click="editRequirement(task)">编辑</button>
+                            <button class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #2a2a2a; color: #888;" @click="deleteRequirement(task.id)">删除</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -427,6 +632,182 @@
                 </div>
             </div>
 
+            <!-- 日历视图 -->
+            <div v-if="currentView === 'calendar'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600;">📅 任务日历</h2>
+                    <div class="calendar-nav">
+                        <button @click="prevMonth()">◀ 上月</button>
+                        <span style="font-size: 1.2rem; font-weight: 600; min-width: 150px; text-align: center;">
+                            {{ calendarYear }}年 {{ calendarMonth }}月
+                        </span>
+                        <button @click="nextMonth()">下月 ▶</button>
+                        <button @click="goToToday()" style="margin-left: 12px; background: #818cf8;">今天</button>
+                    </div>
+                </div>
+
+                <!-- 工作量图例 -->
+                <div class="card" style="padding: 12px 20px; margin-bottom: 16px; display: flex; gap: 24px; align-items: center;">
+                    <span style="color: #666; font-size: 0.85rem;">工作量：</span>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 16px; height: 16px; background: linear-gradient(135deg, #0d3320, #161616); border: 1px solid #22c55e; border-radius: 3px;"></span>
+                        <span style="color: #4ade80; font-size: 0.8rem;">轻松 (&lt;4h)</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 16px; height: 16px; background: linear-gradient(135deg, #1e3a5f, #161616); border: 1px solid #3b82f6; border-radius: 3px;"></span>
+                        <span style="color: #60a5fa; font-size: 0.8rem;">适中 (4-6h)</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 16px; height: 16px; background: linear-gradient(135deg, #422006, #161616); border: 1px solid #f59e0b; border-radius: 3px;"></span>
+                        <span style="color: #fbbf24; font-size: 0.8rem;">饱和 (6-8h)</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="width: 16px; height: 16px; background: linear-gradient(135deg, #450a0a, #161616); border: 1px solid #ef4444; border-radius: 3px;"></span>
+                        <span style="color: #fca5a5; font-size: 0.8rem;">超载 (&gt;8h)</span>
+                    </div>
+                </div>
+
+                <!-- 日历网格 -->
+                <div class="card" style="padding: 16px;">
+                    <div class="calendar-grid">
+                        <!-- 星期头 -->
+                        <div class="calendar-header">周日</div>
+                        <div class="calendar-header">周一</div>
+                        <div class="calendar-header">周二</div>
+                        <div class="calendar-header">周三</div>
+                        <div class="calendar-header">周四</div>
+                        <div class="calendar-header">周五</div>
+                        <div class="calendar-header">周六</div>
+                        
+                        <!-- 日期格子 -->
+                        <div v-for="day in calendarDays" :key="day.dateStr"
+                            class="calendar-day"
+                            :class="[
+                                day.otherMonth ? 'other-month' : '',
+                                day.isToday ? 'today' : '',
+                                getWorkloadClass(day.totalHours)
+                            ]"
+                            @click="openDayDetail(day.dateStr)">
+                            
+                            <div class="day-number">{{ day.day }}</div>
+                            
+                            <!-- 工作量指示器 -->
+                            <div v-if="day.totalHours > 0" 
+                                class="workload-indicator"
+                                :class="getWorkloadLevel(day.totalHours)">
+                                {{ day.totalHours }}h
+                            </div>
+                            
+                            <!-- 任务数量 -->
+                            <div v-if="day.tasks.length > 0" class="task-count">
+                                {{ day.tasks.length }} 个任务
+                            </div>
+                            
+                            <!-- 任务点 -->
+                            <div v-if="day.tasks.length > 0" class="task-dots">
+                                <div v-for="(task, idx) in day.tasks.slice(0, 6)" :key="idx"
+                                    class="task-dot"
+                                    :style="{background: task.priority === 'high' ? '#fff' : task.priority === 'medium' ? '#666' : '#333'}"
+                                    :title="task.title">
+                                </div>
+                                <span v-if="day.tasks.length > 6" style="font-size: 0.65rem; color: #666;">+{{ day.tasks.length - 6 }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 本月统计 -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 20px;">
+                    <div class="stat-card">
+                        <div class="number">{{ calendarStats.totalTasks }}</div>
+                        <div class="label">本月任务</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">{{ calendarStats.totalHours }}h</div>
+                        <div class="label">预计工时</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">{{ calendarStats.busyDays }}</div>
+                        <div class="label">繁忙天数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number" :style="{color: calendarStats.avgHours > 8 ? '#ef4444' : calendarStats.avgHours > 6 ? '#f59e0b' : '#4ade80'}">
+                            {{ calendarStats.avgHours }}h
+                        </div>
+                        <div class="label">日均工时</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 日期详情弹窗 -->
+            <div v-if="showDayDetailModal" class="modal-overlay" @click.self="showDayDetailModal = false">
+                <div class="modal-content" style="max-width: 600px;">
+                    <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 16px;">
+                        📅 {{ selectedDayDetail.dateStr }} 任务详情
+                    </h3>
+                    
+                    <!-- 工作量摘要 -->
+                    <div style="background: #222; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="color: #888;">当日工作量：</span>
+                            <span :style="{
+                                fontWeight: '600',
+                                color: selectedDayDetail.totalHours > 8 ? '#ef4444' : 
+                                       selectedDayDetail.totalHours > 6 ? '#f59e0b' : 
+                                       selectedDayDetail.totalHours > 4 ? '#3b82f6' : '#4ade80'
+                            }">
+                                {{ selectedDayDetail.totalHours }} 小时
+                            </span>
+                        </div>
+                        <div :style="{
+                            padding: '4px 12px',
+                            borderRadius: '6px',
+                            fontSize: '0.85rem',
+                            background: selectedDayDetail.totalHours > 8 ? '#7f1d1d' : 
+                                        selectedDayDetail.totalHours > 6 ? '#78350f' : 
+                                        selectedDayDetail.totalHours > 4 ? '#1e3a5f' : '#14532d',
+                            color: selectedDayDetail.totalHours > 8 ? '#fca5a5' : 
+                                   selectedDayDetail.totalHours > 6 ? '#fcd34d' : 
+                                   selectedDayDetail.totalHours > 4 ? '#93c5fd' : '#86efac'
+                        }">
+                            {{ selectedDayDetail.totalHours > 8 ? '⚠️ 超载' : 
+                               selectedDayDetail.totalHours > 6 ? '📊 饱和' : 
+                               selectedDayDetail.totalHours > 4 ? '✅ 适中' : '😊 轻松' }}
+                        </div>
+                    </div>
+                    
+                    <!-- 任务列表 -->
+                    <div v-if="selectedDayDetail.tasks.length > 0">
+                        <div v-for="task in selectedDayDetail.tasks" :key="task.id" 
+                            class="task-item" :class="task.priority" style="margin-bottom: 8px;">
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                    <span class="badge" :class="'priority-' + task.priority">
+                                        {{ task.priority === 'high' ? '高' : task.priority === 'medium' ? '中' : '低' }}
+                                    </span>
+                                    <strong>{{ task.title }}</strong>
+                                    <span style="color: #666;">[{{ task.category }}]</span>
+                                </div>
+                                <div style="font-size: 0.8rem; color: #888;">
+                                    预计时长: <span style="color: #818cf8;">{{ task.estimated_hours || 1 }}h</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-dark" style="padding: 6px 12px;" @click="editRequirement(task); showDayDetailModal = false;">编辑</button>
+                        </div>
+                    </div>
+                    <div v-else style="text-align: center; padding: 30px; color: #555;">
+                        当日没有安排任务
+                    </div>
+                    
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+                        <button class="btn btn-dark" @click="showDayDetailModal = false">关闭</button>
+                        <button class="btn btn-white" @click="selectedDate = selectedDayDetail.dateStr; currentView = 'today'; showDayDetailModal = false;">
+                            查看今日任务
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- 统计报表视图 -->
             <div v-if="currentView === 'stats'">
                 <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 20px;">统计报表</h2>
@@ -499,6 +880,39 @@
                     <div>
                         <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">预计完成日期</label>
                         <input type="date" v-model="reqForm.expected_date" class="input-field">
+                    </div>
+                    <!-- 需求类型 -->
+                    <div>
+                        <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">需求类型</label>
+                        <select v-model="reqForm.req_type" class="input-field">
+                            <option value="normal">普通需求</option>
+                            <option value="long_term">长期需求</option>
+                        </select>
+                    </div>
+                    <!-- 预计时长 -->
+                    <div>
+                        <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">预计时长（小时）</label>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="number" v-model.number="reqForm.estimated_hours" class="input-field" style="width: 100px;" min="0.5" max="24" step="0.5" placeholder="1">
+                            <span style="color: #666; font-size: 0.85rem;">小时 (如：2, 0.5, 4)</span>
+                        </div>
+                    </div>
+                    <!-- 进度条 -->
+                    <div>
+                        <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">完成进度 ({{ reqForm.progress }}/5)</label>
+                        <div class="progress-bar">
+                            <div v-for="i in 5" :key="i" 
+                                class="progress-node" 
+                                :class="{'filled': i <= reqForm.progress, ['filled-' + reqForm.progress]: i <= reqForm.progress}"
+                                @click="reqForm.progress = (reqForm.progress === i ? i - 1 : i)"
+                                :title="i + '/5'">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 备注 -->
+                    <div>
+                        <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">备注</label>
+                        <textarea v-model="reqForm.notes" class="input-field" rows="3" placeholder="记录需求相关细节..."></textarea>
                     </div>
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
@@ -584,6 +998,12 @@
             const globalNotes = ref([]);
             const expandedCategories = ref({});
             
+            // 计时器相关
+            const activeTimer = ref(null);  // { taskId, startTime, estimatedSeconds, paused, pausedAccumulated }
+            const timerRemaining = ref(0);  // 剩余秒数（负数表示超时）
+            const timerIntervalId = ref(null);
+            const timerPaused = ref(false);  // 是否暂停
+            
             // 书签相关
             const bookmarks = ref([]);
             const expandedBookmarkCategories = ref({});
@@ -594,6 +1014,12 @@
             
             // 月报分类展开状态
             const expandedMonthlyCategories = ref({});
+            
+            // 日历相关
+            const calendarYear = ref(new Date().getFullYear());
+            const calendarMonth = ref(new Date().getMonth() + 1);
+            const showDayDetailModal = ref(false);
+            const selectedDayDetail = ref({ dateStr: '', tasks: [], totalHours: 0 });
             
             // 筛选
             const filterStatus = ref('');
@@ -607,7 +1033,12 @@
             const editingRequirement = ref(null);
             
             // 表单
-            const reqForm = ref({ category: '', title: '', priority: 'medium', status: 'pending', work_start: '', work_end: '', expected_date: '' });
+            const reqForm = ref({ category: '', title: '', priority: 'medium', status: 'pending', work_start: '', work_end: '', expected_date: '', progress: 0, notes: '', req_type: 'normal', estimated_hours: 1 });
+            
+            // 长期需求列表
+            const longTermRequirements = computed(() => {
+                return requirements.value.filter(r => r.req_type === 'long_term' && r.status !== 'completed' && r.status !== 'cancelled');
+            });
             const newTodayTask = ref('');
             const newNoteType = ref('info');
             const newNoteContent = ref('');
@@ -700,7 +1131,7 @@
             // 需求操作
             function openAddModal() {
                 editingRequirement.value = null;
-                reqForm.value = { category: '', title: '', priority: 'medium', status: 'pending', work_start: '', work_end: '', expected_date: '' };
+                reqForm.value = { category: '', title: '', priority: 'medium', status: 'pending', work_start: '', work_end: '', expected_date: '', progress: 0, notes: '', req_type: 'normal' };
                 showRequirementModal.value = true;
             }
             
@@ -710,18 +1141,40 @@
                 if (req.work_period && req.work_period !== '待定' && req.work_period.includes('~')) {
                     [ws, we] = req.work_period.split('~');
                 }
-                reqForm.value = { category: req.category, title: req.title, priority: req.priority, status: req.status, work_start: ws, work_end: we, expected_date: req.expected_date === '待定' ? '' : req.expected_date };
+                reqForm.value = { 
+                    category: req.category, 
+                    title: req.title, 
+                    priority: req.priority, 
+                    status: req.status, 
+                    work_start: ws, 
+                    work_end: we, 
+                    expected_date: req.expected_date === '待定' ? '' : req.expected_date,
+                    progress: req.progress || 0,
+                    notes: req.notes || '',
+                    req_type: req.req_type || 'normal',
+                    estimated_hours: req.estimated_hours || 1
+                };
                 showRequirementModal.value = true;
             }
             
             async function saveRequirement() {
+                // 如果是长期需求，自动清除处理时间段
+                let workPeriod = '待定';
+                if (reqForm.value.req_type !== 'long_term' && reqForm.value.work_start && reqForm.value.work_end) {
+                    workPeriod = `${reqForm.value.work_start}~${reqForm.value.work_end}`;
+                }
+                
                 const data = {
                     category: reqForm.value.category || '未分类',
                     title: reqForm.value.title,
                     priority: reqForm.value.priority,
                     status: reqForm.value.status,
-                    work_period: (reqForm.value.work_start && reqForm.value.work_end) ? `${reqForm.value.work_start}~${reqForm.value.work_end}` : '待定',
-                    expected_date: reqForm.value.expected_date || '待定'
+                    work_period: workPeriod,
+                    expected_date: reqForm.value.expected_date || '待定',
+                    progress: reqForm.value.progress || 0,
+                    notes: reqForm.value.notes || '',
+                    req_type: reqForm.value.req_type || 'normal',
+                    estimated_hours: reqForm.value.estimated_hours || 1
                 };
                 try {
                     if (editingRequirement.value) {
@@ -732,6 +1185,7 @@
                     showRequirementModal.value = false;
                     loadRequirements();
                     loadPeriodTasks();
+                    loadOverdueTasks();
                 } catch (e) { alert('保存失败'); }
             }
             
@@ -741,8 +1195,268 @@
                     await axios.delete(`/api/requirements/${id}`);
                     loadRequirements();
                     loadPeriodTasks();
+                    loadOverdueTasks();
                 } catch (e) { alert('删除失败'); }
             }
+            
+            // ==================== 计时器功能 ====================
+            
+            // 格式化计时器显示 (秒 -> HH:MM:SS)
+            function formatTimerDisplay(seconds) {
+                const h = Math.floor(seconds / 3600);
+                const m = Math.floor((seconds % 3600) / 60);
+                const s = seconds % 60;
+                if (h > 0) {
+                    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                }
+                return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            }
+            
+            // 开始计时
+            function startTimer(task, resumeData = null) {
+                // 如果已有计时器在运行且不是恢复模式，先停止它
+                if (activeTimer.value && !resumeData) {
+                    stopTimer(null, true);  // 静默停止，不保存
+                }
+                
+                const estimatedHours = task.estimated_hours || 1;
+                const estimatedSeconds = Math.floor(estimatedHours * 3600);
+                
+                // 检查是否有之前暂停的进度（从 resumeData 或 localStorage 恢复）
+                const previousAccumulated = resumeData ? resumeData.pausedAccumulated : 0;
+                
+                activeTimer.value = {
+                    taskId: task.id,
+                    taskTitle: task.title,
+                    startTime: Date.now(),
+                    estimatedSeconds: estimatedSeconds,
+                    estimatedHours: estimatedHours,
+                    accumulatedSeconds: previousAccumulated,  // 累积的秒数（包括之前暂停的）
+                    pausedAccumulated: previousAccumulated  // 暂停时已累积的秒数
+                };
+                
+                timerPaused.value = false;
+                timerRemaining.value = estimatedSeconds - previousAccumulated;
+                
+                // 每秒更新计时器
+                timerIntervalId.value = setInterval(() => {
+                    if (timerPaused.value) return;  // 暂停时不更新
+                    
+                    const elapsed = Math.floor((Date.now() - activeTimer.value.startTime) / 1000);
+                    activeTimer.value.accumulatedSeconds = activeTimer.value.pausedAccumulated + elapsed;
+                    timerRemaining.value = activeTimer.value.estimatedSeconds - activeTimer.value.accumulatedSeconds;
+                    
+                    // 超时警告
+                    if (timerRemaining.value < 0 && timerRemaining.value % 3600 === 0) {
+                        const overtimeHours = Math.ceil(Math.abs(timerRemaining.value) / 3600);
+                        console.log(`任务 "${activeTimer.value.taskTitle}" 已超时 ${overtimeHours} 小时`);
+                    }
+                }, 1000);
+                
+                // 浏览器通知权限
+                if (Notification.permission === 'default') {
+                    Notification.requestPermission();
+                }
+            }
+            
+            // 暂停计时
+            function pauseTimer() {
+                if (!activeTimer.value || timerPaused.value) return;
+                
+                // 记录当前已累积的时间
+                const elapsed = Math.floor((Date.now() - activeTimer.value.startTime) / 1000);
+                activeTimer.value.pausedAccumulated = activeTimer.value.pausedAccumulated + elapsed;
+                activeTimer.value.accumulatedSeconds = activeTimer.value.pausedAccumulated;
+                
+                // 停止定时器但保留状态
+                if (timerIntervalId.value) {
+                    clearInterval(timerIntervalId.value);
+                    timerIntervalId.value = null;
+                }
+                
+                timerPaused.value = true;
+                
+                // 保存暂停状态到 localStorage
+                saveTimerToStorage();
+            }
+            
+            // 继续计时
+            function resumeTimer() {
+                if (!activeTimer.value || !timerPaused.value) return;
+                
+                // 重置开始时间（从暂停点继续）
+                activeTimer.value.startTime = Date.now();
+                timerPaused.value = false;
+                
+                // 重新启动定时器
+                timerIntervalId.value = setInterval(() => {
+                    if (timerPaused.value) return;
+                    
+                    const elapsed = Math.floor((Date.now() - activeTimer.value.startTime) / 1000);
+                    activeTimer.value.accumulatedSeconds = activeTimer.value.pausedAccumulated + elapsed;
+                    timerRemaining.value = activeTimer.value.estimatedSeconds - activeTimer.value.accumulatedSeconds;
+                }, 1000);
+                
+                // 保存状态
+                saveTimerToStorage();
+            }
+            
+            // 保存计时器状态到 localStorage
+            function saveTimerToStorage() {
+                if (activeTimer.value) {
+                    const timerData = {
+                        taskId: activeTimer.value.taskId,
+                        taskTitle: activeTimer.value.taskTitle,
+                        estimatedSeconds: activeTimer.value.estimatedSeconds,
+                        estimatedHours: activeTimer.value.estimatedHours,
+                        pausedAccumulated: activeTimer.value.accumulatedSeconds,  // 保存当前累积时间
+                        paused: timerPaused.value,
+                        savedAt: Date.now()
+                    };
+                    localStorage.setItem('workTimer', JSON.stringify(timerData));
+                } else {
+                    localStorage.removeItem('workTimer');
+                }
+            }
+            
+            // 停止计时
+            async function stopTimer(task, silent = false) {
+                if (!activeTimer.value) return;
+                
+                // 清除定时器
+                if (timerIntervalId.value) {
+                    clearInterval(timerIntervalId.value);
+                    timerIntervalId.value = null;
+                }
+                
+                const taskId = activeTimer.value.taskId;
+                const accumulatedSeconds = activeTimer.value.accumulatedSeconds;
+                const accumulatedHours = accumulatedSeconds / 3600;
+                const estimatedHours = activeTimer.value.estimatedHours;
+                
+                // 清除活动计时器
+                activeTimer.value = null;
+                timerRemaining.value = 0;
+                timerPaused.value = false;
+                
+                // 清除 localStorage
+                localStorage.removeItem('workTimer');
+                
+                if (silent) return;  // 静默模式不保存
+                
+                // 找到对应的任务并更新
+                let targetTask = periodTasks.value.find(t => t.id === taskId) || 
+                                 overdueTasks.value.find(t => t.id === taskId) ||
+                                 longTermRequirements.value.find(t => t.id === taskId);
+                
+                if (targetTask) {
+                    // 累加实际工作时长
+                    const currentActualHours = targetTask.actual_hours || 0;
+                    const newActualHours = currentActualHours + accumulatedHours;
+                    
+                    // 如果超时，自动增加预计时长（每超时部分增加1小时）
+                    let newEstimatedHours = estimatedHours;
+                    if (accumulatedHours > estimatedHours) {
+                        // 超出预计时长，按整小时增加
+                        const overtime = accumulatedHours - estimatedHours;
+                        newEstimatedHours = estimatedHours + Math.ceil(overtime);
+                    }
+                    
+                    try {
+                        await axios.put(`/api/requirements/${taskId}`, {
+                            ...targetTask,
+                            actual_hours: newActualHours,
+                            estimated_hours: newEstimatedHours
+                        });
+                        
+                        // 显示工作记录
+                        const workedMinutes = Math.round(accumulatedHours * 60);
+                        let message = `本次工作 ${workedMinutes} 分钟，累计 ${newActualHours.toFixed(1)} 小时`;
+                        if (newEstimatedHours > estimatedHours) {
+                            message += `\n⚠️ 预计时长已自动调整为 ${newEstimatedHours} 小时`;
+                        }
+                        alert(message);
+                        
+                        // 刷新列表
+                        loadRequirements();
+                        loadPeriodTasks();
+                        loadOverdueTasks();
+                    } catch (e) {
+                        alert('保存工作时长失败');
+                        console.error(e);
+                    }
+                }
+            }
+            
+            // 页面关闭前保存计时器状态
+            window.addEventListener('beforeunload', (e) => {
+                if (activeTimer.value) {
+                    // 暂停并保存当前状态
+                    if (!timerPaused.value) {
+                        // 如果正在运行，先更新累积时间
+                        const elapsed = Math.floor((Date.now() - activeTimer.value.startTime) / 1000);
+                        activeTimer.value.accumulatedSeconds = activeTimer.value.pausedAccumulated + elapsed;
+                    }
+                    saveTimerToStorage();
+                }
+            });
+            
+            // 页面加载时恢复计时器
+            function restoreTimerFromStorage() {
+                const savedTimer = localStorage.getItem('workTimer');
+                if (savedTimer) {
+                    try {
+                        const timer = JSON.parse(savedTimer);
+                        const savedDuration = (Date.now() - timer.savedAt) / 1000;
+                        
+                        // 询问是否继续（即使暂停状态也询问）
+                        const statusText = timer.paused ? '（已暂停）' : '';
+                        const workedMinutes = Math.round(timer.pausedAccumulated / 60);
+                        
+                        if (confirm(`检测到有未完成的计时任务 "${timer.taskTitle}"${statusText}\n已工作: ${workedMinutes} 分钟\n\n是否继续？`)) {
+                            // 找到对应任务
+                            setTimeout(() => {
+                                let task = periodTasks.value.find(t => t.id === timer.taskId) ||
+                                           overdueTasks.value.find(t => t.id === timer.taskId) ||
+                                           longTermRequirements.value.find(t => t.id === timer.taskId);
+                                
+                                if (task) {
+                                    // 恢复计时器
+                                    startTimer(task, timer);
+                                    
+                                    // 如果之前是暂停状态，保持暂停
+                                    if (timer.paused) {
+                                        pauseTimer();
+                                    }
+                                } else {
+                                    // 任务不存在，创建虚拟任务继续计时
+                                    const virtualTask = {
+                                        id: timer.taskId,
+                                        title: timer.taskTitle,
+                                        estimated_hours: timer.estimatedHours
+                                    };
+                                    startTimer(virtualTask, timer);
+                                    if (timer.paused) {
+                                        pauseTimer();
+                                    }
+                                }
+                            }, 500);  // 等待任务列表加载
+                        } else {
+                            // 用户选择不继续，清除存储
+                            localStorage.removeItem('workTimer');
+                        }
+                    } catch (e) {
+                        localStorage.removeItem('workTimer');
+                    }
+                }
+            }
+            
+            onMounted(() => {
+                // 延迟恢复计时器，确保任务列表已加载
+                setTimeout(restoreTimerFromStorage, 1000);
+            });
+            
+            // ==================== 计时器功能结束 ====================
             
             async function toggleTaskCompletion(task) {
                 const newStatus = task.status === 'completed' ? 'in_progress' : 'completed';
@@ -1013,6 +1727,13 @@
             }
             
             watch(selectedDate, () => { loadTodayTasks(); loadPeriodTasks(); loadOverdueTasks(); });
+            // 当需求类型改为长期需求时，自动清除处理时间段
+            watch(() => reqForm.value.req_type, (newType) => {
+                if (newType === 'long_term') {
+                    reqForm.value.work_start = '';
+                    reqForm.value.work_end = '';
+                }
+            });
             watch(currentView, (v) => { 
                 if (v === 'stats') renderChart(); 
                 if (v === 'markdown') loadMarkdownPreview();
@@ -1030,6 +1751,192 @@
                 loadBookmarks();
             });
             
+            // 日历计算属性 - 生成日历天数数组
+            const calendarDays = computed(() => {
+                const year = calendarYear.value;
+                const month = calendarMonth.value;
+                const days = [];
+                
+                // 获取当月第一天是星期几
+                const firstDay = new Date(year, month - 1, 1);
+                const startDayOfWeek = firstDay.getDay();
+                
+                // 获取当月天数
+                const daysInMonth = new Date(year, month, 0).getDate();
+                
+                // 获取上月天数（用于填充开头）
+                const daysInPrevMonth = new Date(year, month - 1, 0).getDate();
+                
+                // 今天
+                const today = new Date().toISOString().split('T')[0];
+                
+                // 填充上月末尾日期
+                for (let i = startDayOfWeek - 1; i >= 0; i--) {
+                    const day = daysInPrevMonth - i;
+                    const prevMonth = month === 1 ? 12 : month - 1;
+                    const prevYear = month === 1 ? year - 1 : year;
+                    const dateStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const dayTasks = getTasksForDate(dateStr);
+                    const totalHours = dayTasks.reduce((sum, t) => sum + (t.estimated_hours || 1), 0);
+                    
+                    days.push({
+                        day,
+                        dateStr,
+                        otherMonth: true,
+                        isToday: dateStr === today,
+                        tasks: dayTasks,
+                        totalHours
+                    });
+                }
+                
+                // 填充本月日期
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const dayTasks = getTasksForDate(dateStr);
+                    const totalHours = dayTasks.reduce((sum, t) => sum + (t.estimated_hours || 1), 0);
+                    
+                    days.push({
+                        day,
+                        dateStr,
+                        otherMonth: false,
+                        isToday: dateStr === today,
+                        tasks: dayTasks,
+                        totalHours
+                    });
+                }
+                
+                // 填充下月开头日期（补齐6行）
+                const remainingDays = 42 - days.length; // 6行7列
+                for (let day = 1; day <= remainingDays; day++) {
+                    const nextMonth = month === 12 ? 1 : month + 1;
+                    const nextYear = month === 12 ? year + 1 : year;
+                    const dateStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const dayTasks = getTasksForDate(dateStr);
+                    const totalHours = dayTasks.reduce((sum, t) => sum + (t.estimated_hours || 1), 0);
+                    
+                    days.push({
+                        day,
+                        dateStr,
+                        otherMonth: true,
+                        isToday: dateStr === today,
+                        tasks: dayTasks,
+                        totalHours
+                    });
+                }
+                
+                return days;
+            });
+            
+            // 获取某日期的任务列表
+            function getTasksForDate(dateStr) {
+                return requirements.value.filter(req => {
+                    // 已取消的不显示
+                    if (req.status === 'cancelled') return false;
+                    
+                    // 检查预期完成日期
+                    if (req.expected_date === dateStr) return true;
+                    
+                    // 检查处理期间
+                    if (req.work_period && req.work_period !== '待定' && req.work_period.includes('~')) {
+                        const [start, end] = req.work_period.split('~');
+                        if (dateStr >= start && dateStr <= end) return true;
+                    }
+                    
+                    return false;
+                });
+            }
+            
+            // 日历统计
+            const calendarStats = computed(() => {
+                const monthDays = calendarDays.value.filter(d => !d.otherMonth);
+                const tasksThisMonth = new Set();
+                let totalHours = 0;
+                let busyDays = 0;
+                
+                monthDays.forEach(day => {
+                    day.tasks.forEach(t => tasksThisMonth.add(t.id));
+                    totalHours += day.totalHours;
+                    if (day.totalHours > 6) busyDays++;
+                });
+                
+                const workingDays = monthDays.filter(d => d.tasks.length > 0).length;
+                const avgHours = workingDays > 0 ? (totalHours / workingDays).toFixed(1) : 0;
+                
+                return {
+                    totalTasks: tasksThisMonth.size,
+                    totalHours,
+                    busyDays,
+                    avgHours
+                };
+            });
+            
+            // 获取工作量等级样式类
+            function getWorkloadClass(hours) {
+                if (hours === 0) return '';
+                if (hours < 4) return 'workload-light';
+                if (hours <= 6) return 'workload-normal';
+                if (hours <= 8) return 'workload-busy';
+                return 'workload-overload';
+            }
+            
+            // 获取工作量等级（用于指示器）
+            function getWorkloadLevel(hours) {
+                if (hours < 4) return 'light';
+                if (hours <= 6) return 'normal';
+                if (hours <= 8) return 'busy';
+                return 'overload';
+            }
+            
+            // 日历导航方法
+            function prevMonth() {
+                if (calendarMonth.value === 1) {
+                    calendarMonth.value = 12;
+                    calendarYear.value--;
+                } else {
+                    calendarMonth.value--;
+                }
+            }
+            
+            function nextMonth() {
+                if (calendarMonth.value === 12) {
+                    calendarMonth.value = 1;
+                    calendarYear.value++;
+                } else {
+                    calendarMonth.value++;
+                }
+            }
+            
+            function goToToday() {
+                const today = new Date();
+                calendarYear.value = today.getFullYear();
+                calendarMonth.value = today.getMonth() + 1;
+            }
+            
+            // 打开日期详情弹窗
+            function openDayDetail(dateStr) {
+                const dayData = calendarDays.value.find(d => d.dateStr === dateStr);
+                if (dayData) {
+                    selectedDayDetail.value = {
+                        dateStr,
+                        tasks: dayData.tasks,
+                        totalHours: dayData.totalHours
+                    };
+                    showDayDetailModal.value = true;
+                }
+            }
+            
+            // 更新需求进度（快速点击进度条）
+            async function updateProgress(task, newProgress) {
+                try {
+                    await axios.put(`/api/requirements/${task.id}`, { 
+                        ...task, 
+                        progress: newProgress 
+                    });
+                    loadRequirements();
+                    loadPeriodTasks();
+                } catch (e) { console.error('更新进度失败'); }
+            }
+            
             return {
                 currentView, selectedDate, requirements, todayTasks, periodTasks, overdueTasks, globalNotes,
                 expandedCategories, filterStatus, filterPriority, searchKeyword,
@@ -1037,12 +1944,21 @@
                 reqForm, newTodayTask, newNoteType, newNoteContent, stats, groupedRequirements,
                 mdViewType, mdViewDate, markdownSource, markdownPreviewHtml,
                 selectedYear, selectedMonth, yearOptions, monthlyReport,
+                // 长期需求
+                longTermRequirements, updateProgress,
+                // 计时器相关
+                activeTimer, timerRemaining, timerPaused, formatTimerDisplay, startTimer, stopTimer, pauseTimer, resumeTimer,
                 // 书签相关
                 bookmarks, expandedBookmarkCategories, showBookmarkModal, editingBookmark, bookmarkForm, groupedBookmarks,
                 loadBookmarks, toggleBookmarkCategory, openBookmark, editBookmark, saveBookmark, deleteBookmark,
                 bookmarkFilter, bookmarkCategories, filteredGroupedBookmarks, getDomainFromUrl,
                 // 月报分类展开
                 expandedMonthlyCategories, toggleMonthlyCategory,
+                // 日历相关
+                calendarYear, calendarMonth, calendarDays, calendarStats,
+                showDayDetailModal, selectedDayDetail,
+                prevMonth, nextMonth, goToToday, openDayDetail,
+                getWorkloadClass, getWorkloadLevel,
                 // 其他方法
                 openAddModal, editRequirement, saveRequirement, deleteRequirement, toggleTaskCompletion,
                 addTodayTask, toggleTodayTask, deleteTodayTask, addGlobalNote, deleteGlobalNote,
