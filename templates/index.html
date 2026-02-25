@@ -149,6 +149,19 @@
         .calendar-nav button:hover { background: #444; }
         /* 时长输入 */
         .duration-input { width: 80px; text-align: center; }
+        /* Markdown 工具栏按钮 */
+        .md-btn { 
+            background: #2a2a2a; 
+            border: 1px solid #333; 
+            color: #ccc; 
+            padding: 4px 10px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 0.8rem;
+            transition: all 0.15s;
+        }
+        .md-btn:hover { background: #3a3a3a; border-color: #555; color: #fff; }
+        .md-btn:active { background: #444; transform: scale(0.95); }
     </style>
 </head>
 <body>
@@ -165,7 +178,8 @@
                     <div class="nav-tab" :class="{active: currentView === 'notes'}" @click="currentView = 'notes'; loadNotesList()">📝 笔记</div>
                     <div class="nav-tab" :class="{active: currentView === 'markdown'}" @click="currentView = 'markdown'">Markdown</div>
                     <div class="nav-tab" :class="{active: currentView === 'monthly'}" @click="currentView = 'monthly'">月报</div>
-                    <div class="nav-tab" :class="{active: currentView === 'stats'}" @click="currentView = 'stats'">统计</div>
+                    <div class="nav-tab" :class="{active: currentView === 'stats'}" @click="currentView = 'stats'; loadWeeklyStats()">统计</div>
+                    <div class="nav-tab" :class="{active: currentView === 'trash'}" @click="currentView = 'trash'; loadTrash()">🗑️ 回收站</div>
                 </nav>
                 <div style="display: flex; gap: 8px;">
                     <button class="btn btn-dark" @click="showGlobalNoteModal = true">📌 全局注意</button>
@@ -503,21 +517,34 @@
                             <!-- 编辑器 -->
                             <div v-if="noteViewMode === 'edit' || noteViewMode === 'split'" 
                                 :style="{flex: '1', borderRight: noteViewMode === 'split' ? '1px solid #333' : 'none', display: 'flex', flexDirection: 'column'}">
-                                <textarea v-model="currentNote.body" 
+                                
+                                <!-- Markdown 工具栏 -->
+                                <div class="md-toolbar" style="display: flex; gap: 4px; padding: 8px 12px; background: #1a1a1a; border-bottom: 1px solid #333; flex-wrap: wrap;">
+                                    <button type="button" class="md-btn" @click="insertMarkdown('heading1')" title="一级标题">H1</button>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('heading2')" title="二级标题">H2</button>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('heading3')" title="三级标题">H3</button>
+                                    <div style="width: 1px; background: #333; margin: 0 4px;"></div>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('bold')" title="粗体"><b>B</b></button>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('italic')" title="斜体"><i>I</i></button>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('strike')" title="删除线"><s>S</s></button>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('code')" title="行内代码">&lt;/&gt;</button>
+                                    <div style="width: 1px; background: #333; margin: 0 4px;"></div>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('ul')" title="无序列表">• 列表</button>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('ol')" title="有序列表">1. 列表</button>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('task')" title="任务列表">☑ 任务</button>
+                                    <div style="width: 1px; background: #333; margin: 0 4px;"></div>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('quote')" title="引用">" 引用</button>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('codeblock')" title="代码块">```</button>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('link')" title="链接">🔗</button>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('image')" title="图片">🖼️</button>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('table')" title="表格">📊</button>
+                                    <button type="button" class="md-btn" @click="insertMarkdown('hr')" title="分割线">—</button>
+                                </div>
+                                
+                                <textarea ref="noteTextarea" v-model="currentNote.body" 
                                     @input="noteUnsaved = true; updateNoteContent()"
                                     style="flex: 1; width: 100%; background: #0d0d0d; color: #e0e0e0; border: none; padding: 20px; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; line-height: 1.8; resize: none; outline: none;"
-                                    placeholder="开始编写 Markdown 笔记...
-
-支持的 Markdown 语法：
-# 一级标题
-## 二级标题
-**粗体** *斜体*
-- 无序列表
-1. 有序列表
-`行内代码`
-```代码块```
-[链接](url)
-> 引用"></textarea>
+                                    placeholder="开始编写 Markdown 笔记..."></textarea>
                                 <!-- 状态栏 -->
                                 <div style="padding: 8px 16px; border-top: 1px solid #333; font-size: 0.75rem; color: #666; display: flex; justify-content: space-between; background: #1a1a1a;">
                                     <span>字符: {{ currentNote.body ? currentNote.body.length : 0 }}</span>
@@ -963,29 +990,205 @@
                 </div>
             </div>
 
-            <!-- 统计报表视图 -->
+            <!-- 统计报表视图 - 增强版 -->
             <div v-if="currentView === 'stats'">
-                <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 20px;">统计报表</h2>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600;">📊 统计报表</h2>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn" :class="statsViewMode === 'all' ? 'btn-white' : 'btn-dark'" @click="statsViewMode = 'all'">全部</button>
+                        <button class="btn" :class="statsViewMode === 'week' ? 'btn-white' : 'btn-dark'" @click="statsViewMode = 'week'">本周</button>
+                        <button class="btn" :class="statsViewMode === 'month' ? 'btn-white' : 'btn-dark'" @click="statsViewMode = 'month'">本月</button>
+                    </div>
+                </div>
+
+                <!-- 总体统计卡片 -->
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px;">
                     <div class="stat-card">
-                        <div class="number">{{ stats.total }}</div>
-                        <div class="label">总需求数</div>
+                        <div class="number">{{ periodStats.total }}</div>
+                        <div class="label">{{ statsViewMode === 'all' ? '全部' : statsViewMode === 'week' ? '本周' : '本月' }}任务</div>
                     </div>
                     <div class="stat-card">
-                        <div class="number">{{ stats.completed }}</div>
+                        <div class="number" style="color: #4ade80;">{{ periodStats.completed }}</div>
                         <div class="label">已完成</div>
                     </div>
                     <div class="stat-card">
-                        <div class="number">{{ stats.inProgress }}</div>
+                        <div class="number" style="color: #fbbf24;">{{ periodStats.inProgress }}</div>
                         <div class="label">进行中</div>
                     </div>
                     <div class="stat-card">
-                        <div class="number">{{ stats.pending }}</div>
+                        <div class="number" style="color: #888;">{{ periodStats.pending }}</div>
                         <div class="label">待处理</div>
                     </div>
+                    <div class="stat-card">
+                        <div class="number" :style="{color: periodStats.completionRate >= 80 ? '#4ade80' : periodStats.completionRate >= 50 ? '#fbbf24' : '#ef4444'}">
+                            {{ periodStats.completionRate }}%
+                        </div>
+                        <div class="label">完成率</div>
+                    </div>
                 </div>
+
+                <!-- 分类统计 -->
+                <div class="card" style="padding: 20px; margin-bottom: 24px;">
+                    <h3 style="font-size: 1rem; margin-bottom: 16px; color: #888;">📁 按分类统计</h3>
+                    <div v-if="periodStats.byCategory && Object.keys(periodStats.byCategory).length > 0" 
+                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">
+                        <div v-for="(catStats, category) in periodStats.byCategory" :key="category" 
+                            style="background: #1a1a1a; border-radius: 8px; padding: 16px; border: 1px solid #2a2a2a;">
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #818cf8;">{{ category }}</div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #888;">
+                                <span>任务数: {{ catStats.total }}</span>
+                                <span style="color: #4ade80;">完成: {{ catStats.completed }}</span>
+                            </div>
+                            <div style="margin-top: 8px; height: 4px; background: #333; border-radius: 2px; overflow: hidden;">
+                                <div :style="{width: (catStats.completed / catStats.total * 100) + '%', height: '100%', background: '#4ade80', transition: 'width 0.3s'}"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else style="text-align: center; padding: 20px; color: #555;">暂无分类数据</div>
+                </div>
+
+                <!-- 按类型统计 -->
+                <div class="card" style="padding: 20px; margin-bottom: 24px;">
+                    <h3 style="font-size: 1rem; margin-bottom: 16px; color: #888;">🏷️ 按类型统计</h3>
+                    <div style="display: flex; gap: 24px;">
+                        <div style="flex: 1; background: #1a1a1a; border-radius: 8px; padding: 16px; border: 1px solid #2a2a2a;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">📋 普通需求</div>
+                            <div style="font-size: 2rem; font-weight: bold;">{{ periodStats.byType?.normal?.total || 0 }}</div>
+                            <div style="font-size: 0.8rem; color: #4ade80;">完成: {{ periodStats.byType?.normal?.completed || 0 }}</div>
+                        </div>
+                        <div style="flex: 1; background: #1a1a2e; border-radius: 8px; padding: 16px; border: 1px solid #312e81;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">🎯 长期需求</div>
+                            <div style="font-size: 2rem; font-weight: bold; color: #818cf8;">{{ periodStats.byType?.long_term?.total || 0 }}</div>
+                            <div style="font-size: 0.8rem; color: #4ade80;">完成: {{ periodStats.byType?.long_term?.completed || 0 }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 任务详情列表 -->
                 <div class="card" style="padding: 20px;">
-                    <canvas id="statsChart" height="100"></canvas>
+                    <h3 style="font-size: 1rem; margin-bottom: 16px; color: #888;">📋 {{ statsViewMode === 'all' ? '全部' : statsViewMode === 'week' ? '本周' : '本月' }}任务一览</h3>
+                    
+                    <!-- 筛选器 -->
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+                        <select v-model="statsFilterStatus" class="input-field" style="width: auto;">
+                            <option value="">全部状态</option>
+                            <option value="pending">待处理</option>
+                            <option value="in_progress">进行中</option>
+                            <option value="completed">已完成</option>
+                        </select>
+                        <select v-model="statsFilterCategory" class="input-field" style="width: auto;">
+                            <option value="">全部分类</option>
+                            <option v-for="cat in Object.keys(periodStats.byCategory || {})" :key="cat" :value="cat">{{ cat }}</option>
+                        </select>
+                        <select v-model="statsFilterType" class="input-field" style="width: auto;">
+                            <option value="">全部类型</option>
+                            <option value="normal">普通需求</option>
+                            <option value="long_term">长期需求</option>
+                        </select>
+                    </div>
+
+                    <!-- 任务表格 -->
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid #333;">
+                                    <th style="text-align: left; padding: 12px 8px; color: #888; font-weight: 500;">任务名称</th>
+                                    <th style="text-align: left; padding: 12px 8px; color: #888; font-weight: 500;">分类</th>
+                                    <th style="text-align: center; padding: 12px 8px; color: #888; font-weight: 500;">优先级</th>
+                                    <th style="text-align: center; padding: 12px 8px; color: #888; font-weight: 500;">类型</th>
+                                    <th style="text-align: center; padding: 12px 8px; color: #888; font-weight: 500;">状态</th>
+                                    <th style="text-align: center; padding: 12px 8px; color: #888; font-weight: 500;">预计完成</th>
+                                    <th style="text-align: center; padding: 12px 8px; color: #888; font-weight: 500;">进度</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="task in filteredStatsTasks" :key="task.id" style="border-bottom: 1px solid #222;">
+                                    <td style="padding: 12px 8px;">
+                                        <strong>{{ task.title }}</strong>
+                                        <div v-if="task.notes" style="font-size: 0.75rem; color: #666; margin-top: 4px;">{{ task.notes.substring(0, 50) }}{{ task.notes.length > 50 ? '...' : '' }}</div>
+                                    </td>
+                                    <td style="padding: 12px 8px; color: #818cf8;">{{ task.category }}</td>
+                                    <td style="text-align: center; padding: 12px 8px;">
+                                        <span class="badge" :class="'priority-' + task.priority">
+                                            {{ task.priority === 'high' ? '高' : task.priority === 'medium' ? '中' : '低' }}
+                                        </span>
+                                    </td>
+                                    <td style="text-align: center; padding: 12px 8px;">
+                                        <span :class="'type-badge type-' + task.req_type">{{ task.req_type === 'long_term' ? '长期' : '普通' }}</span>
+                                    </td>
+                                    <td style="text-align: center; padding: 12px 8px;">
+                                        <span :style="{color: task.status === 'completed' ? '#4ade80' : task.status === 'in_progress' ? '#fbbf24' : '#888'}">
+                                            {{ task.status === 'completed' ? '✅已完成' : task.status === 'in_progress' ? '🔄进行中' : '⏳待处理' }}
+                                        </span>
+                                    </td>
+                                    <td style="text-align: center; padding: 12px 8px; font-size: 0.85rem;">{{ task.expected_date || '-' }}</td>
+                                    <td style="text-align: center; padding: 12px 8px;">
+                                        <div style="display: flex; gap: 2px; justify-content: center;">
+                                            <div v-for="i in 5" :key="i" 
+                                                style="width: 8px; height: 8px; border-radius: 50%;"
+                                                :style="{background: i <= (task.progress || 0) ? '#4ade80' : '#333'}"></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div v-if="filteredStatsTasks.length === 0" style="text-align: center; padding: 40px; color: #555;">
+                            暂无符合条件的任务
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 回收站视图 -->
+            <div v-if="currentView === 'trash'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600;">🗑️ 回收站</h2>
+                    <button v-if="trashRequirements.length > 0 || trashNotes.length > 0" 
+                        class="btn" style="background: #dc2626; color: white;" @click="emptyTrash()">
+                        🗑️ 清空回收站
+                    </button>
+                </div>
+
+                <!-- 已删除的需求 -->
+                <div class="card" style="padding: 20px; margin-bottom: 20px;">
+                    <h3 style="font-size: 1rem; margin-bottom: 16px; color: #888;">📋 已删除的需求 ({{ trashRequirements.length }})</h3>
+                    <div v-if="trashRequirements.length > 0">
+                        <div v-for="item in trashRequirements" :key="item.id" 
+                            style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #1a1a1a; border-radius: 8px; margin-bottom: 8px; border: 1px solid #2a2a2a;">
+                            <div>
+                                <div style="font-weight: 600;">{{ item.title || item['标题'] }}</div>
+                                <div style="font-size: 0.8rem; color: #666;">
+                                    分类: {{ item.category || item['分类'] }} | 删除时间: {{ item.deleted_at }}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn" style="background: #059669; color: white; padding: 6px 12px;" @click="restoreRequirement(item)">↩ 恢复</button>
+                                <button class="btn" style="background: #dc2626; color: white; padding: 6px 12px;" @click="permanentlyDeleteRequirement(item)">🗑️ 永久删除</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else style="text-align: center; padding: 30px; color: #555;">回收站中没有需求</div>
+                </div>
+
+                <!-- 已删除的笔记 -->
+                <div class="card" style="padding: 20px;">
+                    <h3 style="font-size: 1rem; margin-bottom: 16px; color: #888;">📝 已删除的笔记 ({{ trashNotes.length }})</h3>
+                    <div v-if="trashNotes.length > 0">
+                        <div v-for="item in trashNotes" :key="item.id" 
+                            style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #1a1a1a; border-radius: 8px; margin-bottom: 8px; border: 1px solid #2a2a2a;">
+                            <div>
+                                <div style="font-weight: 600;">{{ item.title }}</div>
+                                <div style="font-size: 0.8rem; color: #666;">
+                                    分类: {{ item.category }} | 删除时间: {{ item.deleted_at }}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn" style="background: #059669; color: white; padding: 6px 12px;" @click="restoreNote(item)">↩ 恢复</button>
+                                <button class="btn" style="background: #dc2626; color: white; padding: 6px 12px;" @click="permanentlyDeleteNote(item)">🗑️ 永久删除</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else style="text-align: center; padding: 30px; color: #555;">回收站中没有笔记</div>
                 </div>
             </div>
         </main>
@@ -1211,6 +1414,19 @@
             const noteFilterCategory = ref('');
             const showNoteCreateModal = ref(false);
             const newNoteForm = ref({ title: '', category: '', newCategory: '' });
+            const noteTextarea = ref(null);  // textarea 引用
+            
+            // 回收站相关
+            const trashRequirements = ref([]);
+            const trashNotes = ref([]);
+            
+            // 统计相关
+            const statsViewMode = ref('all');  // all, week 或 month
+            const periodStats = ref({ total: 0, completed: 0, inProgress: 0, pending: 0, completionRate: 0, byCategory: {}, byType: {} });
+            const periodTasks_stats = ref([]);  // 统计页面用的任务列表
+            const statsFilterStatus = ref('');
+            const statsFilterCategory = ref('');
+            const statsFilterType = ref('');
             
             // 笔记分类计算
             const noteCategories = computed(() => {
@@ -2071,7 +2287,7 @@ created: ${currentNote.value.created_time || new Date().toISOString().split('T')
             
             async function deleteCurrentNote() {
                 if (!currentNote.value) return;
-                if (!confirm(`确定要删除笔记"${currentNote.value.title}"吗？此操作不可恢复。`)) {
+                if (!confirm(`确定要删除笔记"${currentNote.value.title}"吗？删除后可在回收站恢复。`)) {
                     return;
                 }
                 try {
@@ -2083,6 +2299,255 @@ created: ${currentNote.value.created_time || new Date().toISOString().split('T')
                     alert('删除笔记失败');
                 }
             }
+            
+            // Markdown 工具栏插入函数
+            function insertMarkdown(type) {
+                const textarea = document.querySelector('.note-edit-pane textarea');
+                if (!textarea || !currentNote.value) return;
+                
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const text = currentNote.value.content || '';
+                const selected = text.substring(start, end);
+                
+                let before = '', after = '', insert = '';
+                
+                switch(type) {
+                    case 'h1':
+                        before = '# '; break;
+                    case 'h2':
+                        before = '## '; break;
+                    case 'h3':
+                        before = '### '; break;
+                    case 'bold':
+                        before = '**'; after = '**'; break;
+                    case 'italic':
+                        before = '*'; after = '*'; break;
+                    case 'strike':
+                        before = '~~'; after = '~~'; break;
+                    case 'code':
+                        before = '`'; after = '`'; break;
+                    case 'codeblock':
+                        before = '```\n'; after = '\n```'; break;
+                    case 'link':
+                        insert = `[${selected || '链接文字'}](url)`; break;
+                    case 'image':
+                        insert = `![${selected || '图片描述'}](url)`; break;
+                    case 'quote':
+                        before = '> '; break;
+                    case 'ul':
+                        before = '- '; break;
+                    case 'ol':
+                        before = '1. '; break;
+                    case 'task':
+                        before = '- [ ] '; break;
+                    case 'hr':
+                        insert = '\n---\n'; break;
+                    case 'table':
+                        insert = '\n| 列1 | 列2 | 列3 |\n|-----|-----|-----|\n| 内容 | 内容 | 内容 |\n'; break;
+                }
+                
+                let newText, newCursorPos;
+                if (insert) {
+                    newText = text.substring(0, start) + insert + text.substring(end);
+                    newCursorPos = start + insert.length;
+                } else if (selected) {
+                    newText = text.substring(0, start) + before + selected + after + text.substring(end);
+                    newCursorPos = start + before.length + selected.length + after.length;
+                } else {
+                    newText = text.substring(0, start) + before + after + text.substring(end);
+                    newCursorPos = start + before.length;
+                }
+                
+                currentNote.value.content = newText;
+                noteUnsaved.value = true;
+                
+                // 恢复焦点和光标位置
+                nextTick(() => {
+                    textarea.focus();
+                    textarea.setSelectionRange(newCursorPos, newCursorPos);
+                });
+            }
+            
+            // 回收站相关函数
+            async function loadTrash() {
+                try {
+                    const [reqRes, noteRes] = await Promise.all([
+                        axios.get('/api/trash/requirements'),
+                        axios.get('/api/trash/notes')
+                    ]);
+                    trashRequirements.value = reqRes.data || [];
+                    trashNotes.value = noteRes.data || [];
+                } catch (e) {
+                    console.error('加载回收站失败', e);
+                }
+            }
+            
+            async function restoreRequirement(item) {
+                try {
+                    await axios.post(`/api/trash/requirements/${item.id}/restore`);
+                    await loadTrash();
+                    await loadRequirements();
+                } catch (e) {
+                    alert('恢复失败：' + (e.response?.data?.error || e.message));
+                }
+            }
+            
+            async function restoreNote(item) {
+                try {
+                    await axios.post(`/api/trash/notes/${item.id}/restore`);
+                    await loadTrash();
+                    await loadNotesList();
+                } catch (e) {
+                    alert('恢复失败：' + (e.response?.data?.error || e.message));
+                }
+            }
+            
+            async function permanentlyDeleteRequirement(item) {
+                if (!confirm('确定要永久删除此需求吗？此操作不可恢复！')) return;
+                try {
+                    await axios.delete(`/api/trash/requirements/${item.id}`);
+                    await loadTrash();
+                } catch (e) {
+                    alert('删除失败');
+                }
+            }
+            
+            async function permanentlyDeleteNote(item) {
+                if (!confirm('确定要永久删除此笔记吗？此操作不可恢复！')) return;
+                try {
+                    await axios.delete(`/api/trash/notes/${item.id}`);
+                    await loadTrash();
+                } catch (e) {
+                    alert('删除失败');
+                }
+            }
+            
+            async function emptyTrash() {
+                if (!confirm('确定要清空回收站吗？所有数据将永久删除！')) return;
+                try {
+                    await axios.delete('/api/trash/clear');
+                    await loadTrash();
+                } catch (e) {
+                    alert('清空失败');
+                }
+            }
+            
+            // 统计相关函数
+            function loadAllStats() {
+                // 统计所有任务
+                calculatePeriodStats(null, null);
+            }
+            
+            function loadWeeklyStats() {
+                const now = new Date();
+                const dayOfWeek = now.getDay() || 7;  // 周日为7
+                const monday = new Date(now);
+                monday.setDate(now.getDate() - dayOfWeek + 1);
+                monday.setHours(0, 0, 0, 0);
+                const sunday = new Date(monday);
+                sunday.setDate(monday.getDate() + 6);
+                sunday.setHours(23, 59, 59, 999);
+                
+                calculatePeriodStats(monday, sunday);
+            }
+            
+            function loadMonthlyStats() {
+                const now = new Date();
+                const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+                const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                lastDay.setHours(23, 59, 59, 999);
+                
+                calculatePeriodStats(firstDay, lastDay);
+            }
+            
+            function calculatePeriodStats(startDate, endDate) {
+                let tasksInPeriod;
+                
+                if (!startDate || !endDate) {
+                    // 全部任务
+                    tasksInPeriod = requirements.value;
+                } else {
+                    const startStr = startDate.toISOString().split('T')[0];
+                    const endStr = endDate.toISOString().split('T')[0];
+                    
+                    // 筛选时间范围内的任务（根据创建时间或预期完成时间）
+                    tasksInPeriod = requirements.value.filter(r => {
+                        const created = r.created_at?.split('T')[0];
+                        const expected = r.expected_date;
+                        const workStart = r.work_start;
+                        const workEnd = r.work_end;
+                        
+                        // 任务在该时间段内有活动
+                        return (created && created >= startStr && created <= endStr) ||
+                               (expected && expected >= startStr && expected <= endStr) ||
+                               (workStart && workStart >= startStr && workStart <= endStr) ||
+                               (workEnd && workEnd >= startStr && workEnd <= endStr);
+                    });
+                }
+                
+                periodTasks_stats.value = tasksInPeriod;
+                
+                // 计算统计数据
+                const total = tasksInPeriod.length;
+                const completed = tasksInPeriod.filter(t => t.status === 'completed').length;
+                const inProgress = tasksInPeriod.filter(t => t.status === 'in_progress').length;
+                const pending = tasksInPeriod.filter(t => t.status === 'pending').length;
+                
+                // 按分类统计
+                const byCategory = {};
+                tasksInPeriod.forEach(t => {
+                    const cat = t.category || '未分类';
+                    if (!byCategory[cat]) byCategory[cat] = { total: 0, completed: 0 };
+                    byCategory[cat].total++;
+                    if (t.status === 'completed') byCategory[cat].completed++;
+                });
+                
+                // 按类型统计
+                const byType = {
+                    normal: { total: 0, completed: 0 },
+                    long_term: { total: 0, completed: 0 }
+                };
+                tasksInPeriod.forEach(t => {
+                    const type = t.req_type || 'normal';
+                    byType[type].total++;
+                    if (t.status === 'completed') byType[type].completed++;
+                });
+                
+                periodStats.value = {
+                    total,
+                    completed,
+                    inProgress,
+                    pending,
+                    completionRate: total > 0 ? Math.round(completed / total * 100) : 0,
+                    byCategory,
+                    byType
+                };
+            }
+            
+            // 统计页面任务过滤
+            const filteredStatsTasks = computed(() => {
+                let tasks = periodTasks_stats.value;
+                if (statsFilterStatus.value) {
+                    tasks = tasks.filter(t => t.status === statsFilterStatus.value);
+                }
+                if (statsFilterCategory.value) {
+                    tasks = tasks.filter(t => t.category === statsFilterCategory.value);
+                }
+                if (statsFilterType.value) {
+                    tasks = tasks.filter(t => (t.req_type || 'normal') === statsFilterType.value);
+                }
+                return tasks;
+            });
+            
+            // 统计页面分类列表
+            const statsCategoryList = computed(() => {
+                const cats = new Set();
+                periodTasks_stats.value.forEach(t => {
+                    if (t.category) cats.add(t.category);
+                });
+                return Array.from(cats).sort();
+            });
             
             // 完整的 Markdown 渲染函数
             function renderMarkdownFull(content) {
@@ -2224,6 +2689,33 @@ created: ${currentNote.value.created_time || new Date().toISOString().split('T')
             watch(requirements, () => { if (currentView.value === 'stats') renderChart(); }, { deep: true });
             watch(mdViewType, () => { loadMarkdownPreview(); });
             watch(mdViewDate, () => { if (mdViewType.value === 'daily') loadMarkdownPreview(); });
+            
+            // 监听视图切换
+            watch(currentView, (newView) => {
+                if (newView === 'trash') {
+                    loadTrash();
+                } else if (newView === 'stats') {
+                    // 根据当前模式加载统计
+                    if (statsViewMode.value === 'all') {
+                        loadAllStats();
+                    } else if (statsViewMode.value === 'week') {
+                        loadWeeklyStats();
+                    } else {
+                        loadMonthlyStats();
+                    }
+                }
+            });
+            
+            // 监听统计视图模式切换
+            watch(statsViewMode, (mode) => {
+                if (mode === 'all') {
+                    loadAllStats();
+                } else if (mode === 'week') {
+                    loadWeeklyStats();
+                } else {
+                    loadMonthlyStats();
+                }
+            });
             
             onMounted(() => {
                 loadRequirements();
@@ -2463,7 +2955,14 @@ created: ${currentNote.value.created_time || new Date().toISOString().split('T')
                 notesList, currentNote, noteViewMode, noteUnsaved,
                 noteFilterCategory, showNoteCreateModal, newNoteForm, noteCategories, filteredNotesList, groupedNotes,
                 loadNotesList, loadNote, createNewNote, saveCurrentNote, deleteCurrentNote, closeNoteEditor,
-                updateNoteContent, renderMarkdown, renderMarkdownFull
+                updateNoteContent, renderMarkdown, renderMarkdownFull, insertMarkdown,
+                // 回收站相关
+                trashRequirements, trashNotes, loadTrash, restoreRequirement, restoreNote,
+                permanentlyDeleteRequirement, permanentlyDeleteNote, emptyTrash,
+                // 增强统计相关
+                statsViewMode, periodStats, periodTasks_stats, filteredStatsTasks, statsCategoryList,
+                statsFilterStatus, statsFilterCategory, statsFilterType,
+                loadAllStats, loadWeeklyStats, loadMonthlyStats
             };
         }
     }).mount('#app');

@@ -23,10 +23,41 @@ MONTHLY_DIR = DATA_DIR / 'monthly'
 GLOBAL_NOTES_FILE = DATA_DIR / 'global_notes.md'
 BOOKMARKS_FILE = DATA_DIR / 'bookmarks.md'
 NOTES_DIR = DATA_DIR / 'notes'  # 工作笔记目录
+TRASH_DIR = DATA_DIR / 'trash'  # 回收站目录
 
 DAILY_DIR.mkdir(exist_ok=True)
 MONTHLY_DIR.mkdir(exist_ok=True)
 NOTES_DIR.mkdir(exist_ok=True)
+TRASH_DIR.mkdir(exist_ok=True)
+
+# 回收站文件
+TRASH_REQUIREMENTS_FILE = TRASH_DIR / 'requirements_trash.json'
+TRASH_NOTES_FILE = TRASH_DIR / 'notes_trash.json'
+
+def init_trash_files():
+    """初始化回收站文件"""
+    if not TRASH_REQUIREMENTS_FILE.exists():
+        TRASH_REQUIREMENTS_FILE.write_text('[]', encoding='utf-8')
+    if not TRASH_NOTES_FILE.exists():
+        TRASH_NOTES_FILE.write_text('[]', encoding='utf-8')
+
+def get_trash_requirements():
+    """获取回收站中的需求"""
+    init_trash_files()
+    return json.loads(TRASH_REQUIREMENTS_FILE.read_text(encoding='utf-8'))
+
+def save_trash_requirements(items):
+    """保存回收站需求"""
+    TRASH_REQUIREMENTS_FILE.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding='utf-8')
+
+def get_trash_notes():
+    """获取回收站中的笔记"""
+    init_trash_files()
+    return json.loads(TRASH_NOTES_FILE.read_text(encoding='utf-8'))
+
+def save_trash_notes(items):
+    """保存回收站笔记"""
+    TRASH_NOTES_FILE.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding='utf-8')
 
 # 优先级和状态定义
 PRIORITIES = ['高', '中', '低']
@@ -875,18 +906,30 @@ def update_requirement(req_id):
 
 @app.route('/api/requirements/<req_id>', methods=['DELETE'])
 def delete_requirement(req_id):
-    """删除需求"""
+    """删除需求（移入回收站）"""
     requirements = parse_requirements()
-    original_count = len(requirements)
-    requirements = [r for r in requirements if r['id'] != req_id]
+    deleted_req = None
     
-    if len(requirements) == original_count:
+    for r in requirements:
+        if r['id'] == req_id:
+            deleted_req = r
+            break
+    
+    if not deleted_req:
         return jsonify({'error': '需求不存在'}), 404
     
+    # 移入回收站
+    trash = get_trash_requirements()
+    deleted_req['deleted_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    trash.append(deleted_req)
+    save_trash_requirements(trash)
+    
+    # 从原列表删除
+    requirements = [r for r in requirements if r['id'] != req_id]
     success, error = save_requirements(requirements)
     if not success:
         return jsonify({'error': f'删除失败: {error}'}), 500
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'message': '已移入回收站'})
 
 
 @app.route('/api/requirements/overdue/<date_str>', methods=['GET'])
@@ -1806,7 +1849,7 @@ def update_note(note_id):
 
 @app.route('/api/notes/<note_id>', methods=['DELETE'])
 def delete_note(note_id):
-    """删除笔记"""
+    """删除笔记（移入回收站）"""
     # 安全检查
     if '..' in note_id or '/' in note_id or '\\' in note_id:
         return jsonify({'error': '无效的笔记ID'}), 400
@@ -1816,10 +1859,132 @@ def delete_note(note_id):
         return jsonify({'error': '笔记不存在'}), 404
     
     try:
+        # 读取笔记内容并移入回收站
+        content = note_file.read_text(encoding='utf-8')
+        meta, body = parse_note_frontmatter(content)
+        
+        trash = get_trash_notes()
+        trash.append({
+            'id': note_id,
+            'title': meta['title'],
+            'category': meta['category'],
+            'content': content,
+            'deleted_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+        save_trash_notes(trash)
+        
+        # 删除原文件
         note_file.unlink()
-        return jsonify({'success': True, 'message': '删除成功'})
+        return jsonify({'success': True, 'message': '已移入回收站'})
     except Exception as e:
         return jsonify({'error': f'删除失败: {str(e)}'}), 500
+
+
+# ==================== 回收站 API ====================
+
+@app.route('/api/trash/requirements', methods=['GET'])
+def get_trash_requirements_api():
+    """获取回收站中的需求"""
+    return jsonify(get_trash_requirements())
+
+
+@app.route('/api/trash/notes', methods=['GET'])
+def get_trash_notes_api():
+    """获取回收站中的笔记"""
+    return jsonify(get_trash_notes())
+
+
+@app.route('/api/trash/requirements/<req_id>/restore', methods=['POST'])
+def restore_requirement(req_id):
+    """从回收站恢复需求"""
+    trash = get_trash_requirements()
+    item_to_restore = None
+    
+    for item in trash:
+        if item['id'] == req_id:
+            item_to_restore = item
+            break
+    
+    if not item_to_restore:
+        return jsonify({'error': '回收站中未找到该需求'}), 404
+    
+    # 从回收站移除
+    trash = [item for item in trash if item['id'] != req_id]
+    save_trash_requirements(trash)
+    
+    # 移除 deleted_at 字段
+    if 'deleted_at' in item_to_restore:
+        del item_to_restore['deleted_at']
+    
+    # 添加回需求列表
+    requirements = parse_requirements()
+    requirements.append(item_to_restore)
+    success, error = save_requirements(requirements)
+    
+    if not success:
+        return jsonify({'error': f'恢复失败: {error}'}), 500
+    return jsonify({'success': True, 'message': '恢复成功'})
+
+
+@app.route('/api/trash/notes/<note_id>/restore', methods=['POST'])
+def restore_note(note_id):
+    """从回收站恢复笔记"""
+    trash = get_trash_notes()
+    item_to_restore = None
+    
+    for item in trash:
+        if item['id'] == note_id:
+            item_to_restore = item
+            break
+    
+    if not item_to_restore:
+        return jsonify({'error': '回收站中未找到该笔记'}), 404
+    
+    # 从回收站移除
+    trash = [item for item in trash if item['id'] != note_id]
+    save_trash_notes(trash)
+    
+    # 恢复笔记文件
+    note_file = NOTES_DIR / f'{note_id}.md'
+    note_file.write_text(item_to_restore['content'], encoding='utf-8')
+    
+    return jsonify({'success': True, 'message': '恢复成功'})
+
+
+@app.route('/api/trash/requirements/<req_id>', methods=['DELETE'])
+def permanently_delete_requirement(req_id):
+    """永久删除需求"""
+    trash = get_trash_requirements()
+    original_count = len(trash)
+    trash = [item for item in trash if item['id'] != req_id]
+    
+    if len(trash) == original_count:
+        return jsonify({'error': '回收站中未找到该需求'}), 404
+    
+    save_trash_requirements(trash)
+    return jsonify({'success': True, 'message': '已永久删除'})
+
+
+@app.route('/api/trash/notes/<note_id>', methods=['DELETE'])
+def permanently_delete_note(note_id):
+    """永久删除笔记"""
+    trash = get_trash_notes()
+    original_count = len(trash)
+    trash = [item for item in trash if item['id'] != note_id]
+    
+    if len(trash) == original_count:
+        return jsonify({'error': '回收站中未找到该笔记'}), 404
+    
+    save_trash_notes(trash)
+    return jsonify({'success': True, 'message': '已永久删除'})
+
+
+@app.route('/api/trash/clear', methods=['DELETE'])
+def clear_trash():
+    """清空回收站"""
+    save_trash_requirements([])
+    save_trash_notes([])
+    return jsonify({'success': True, 'message': '回收站已清空'})
 
 
 if __name__ == '__main__':
