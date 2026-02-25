@@ -79,7 +79,8 @@
                 <nav style="display: flex; gap: 8px;">
                     <div class="nav-tab" :class="{active: currentView === 'today'}" @click="currentView = 'today'">今日任务</div>
                     <div class="nav-tab" :class="{active: currentView === 'all'}" @click="currentView = 'all'">全部需求</div>
-                    <div class="nav-tab" :class="{active: currentView === 'markdown'}" @click="currentView = 'markdown'">Markdown 管理</div>
+                    <div class="nav-tab" :class="{active: currentView === 'bookmarks'}" @click="currentView = 'bookmarks'">🔖 书签</div>
+                    <div class="nav-tab" :class="{active: currentView === 'markdown'}" @click="currentView = 'markdown'">Markdown</div>
                     <div class="nav-tab" :class="{active: currentView === 'monthly'}" @click="currentView = 'monthly'">月报</div>
                     <div class="nav-tab" :class="{active: currentView === 'stats'}" @click="currentView = 'stats'">统计</div>
                 </nav>
@@ -271,9 +272,60 @@
                     </div>
                 </div>
 
+                <!-- 分类汇总 - 本月工作内容 -->
+                <div v-if="monthlyReport && monthlyReport.category_summary && monthlyReport.category_summary.length > 0" style="margin-bottom: 24px;">
+                    <h3 style="font-size: 1rem; color: #888; margin-bottom: 16px;">📂 本月工作内容（按分类）</h3>
+                    <div v-for="cat in monthlyReport.category_summary" :key="cat.category" class="category-block" style="margin-bottom: 16px;">
+                        <div class="category-header" @click="toggleMonthlyCategory(cat.category)" style="cursor: pointer;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="font-weight: 600;">【{{ cat.category }}】</span>
+                                <span style="font-size: 0.85rem; color: #888;">
+                                    {{ cat.completed }}/{{ cat.total }} 完成
+                                </span>
+                                <span :style="{
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.8rem',
+                                    backgroundColor: cat.completion_rate >= 80 ? '#166534' : cat.completion_rate >= 50 ? '#854d0e' : '#7f1d1d',
+                                    color: '#fff'
+                                }">
+                                    {{ cat.completion_rate }}%
+                                </span>
+                            </div>
+                            <span>{{ expandedMonthlyCategories[cat.category] ? '▼' : '▶' }}</span>
+                        </div>
+                        <div v-if="expandedMonthlyCategories[cat.category]" style="padding: 12px; background: #0d0d0d;">
+                            <!-- 已完成任务 -->
+                            <div v-if="cat.tasks.filter(t => t.completed).length > 0" style="margin-bottom: 12px;">
+                                <div style="color: #4ade80; font-size: 0.9rem; margin-bottom: 8px; font-weight: 600;">✅ 已完成：</div>
+                                <div v-for="task in cat.tasks.filter(t => t.completed)" :key="task.name + task.date" 
+                                    style="padding: 8px 12px; background: #161616; border-radius: 6px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                    <span :style="{color: task.priority === '高' ? '#ef4444' : task.priority === '中' ? '#fbbf24' : '#4ade80'}">
+                                        {{ task.priority === '高' ? '🔴' : task.priority === '中' ? '🟡' : '🟢' }}
+                                    </span>
+                                    <span style="flex: 1; color: #aaa;">{{ task.name }}</span>
+                                    <span style="font-size: 0.8rem; color: #555;">{{ task.date }}</span>
+                                </div>
+                            </div>
+                            <!-- 未完成任务 -->
+                            <div v-if="cat.tasks.filter(t => !t.completed).length > 0">
+                                <div style="color: #fbbf24; font-size: 0.9rem; margin-bottom: 8px; font-weight: 600;">⏳ 未完成：</div>
+                                <div v-for="task in cat.tasks.filter(t => !t.completed)" :key="task.name + task.date" 
+                                    style="padding: 8px 12px; background: #161616; border-radius: 6px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                    <span :style="{color: task.priority === '高' ? '#ef4444' : task.priority === '中' ? '#fbbf24' : '#4ade80'}">
+                                        {{ task.priority === '高' ? '🔴' : task.priority === '中' ? '🟡' : '🟢' }}
+                                    </span>
+                                    <span style="flex: 1; color: #ccc;">{{ task.name }}</span>
+                                    <span style="font-size: 0.8rem; color: #555;">{{ task.date }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 每日统计表格 -->
                 <div v-if="monthlyReport && monthlyReport.daily_stats.length > 0" class="card" style="padding: 20px;">
-                    <h3 style="font-size: 1rem; color: #888; margin-bottom: 16px;">每日完成情况</h3>
+                    <h3 style="font-size: 1rem; color: #888; margin-bottom: 16px;">📊 每日完成情况</h3>
                     <table>
                         <thead>
                             <tr>
@@ -298,8 +350,80 @@
                     </table>
                 </div>
 
-                <div v-else class="card" style="padding: 40px; text-align: center; color: #555;">
+                <div v-if="!monthlyReport" class="card" style="padding: 40px; text-align: center; color: #555;">
                     请选择年月并点击"生成月报"按钮
+                </div>
+            </div>
+
+            <!-- 书签视图 -->
+            <div v-if="currentView === 'bookmarks'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600;">🔖 我的书签</h2>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <select v-model="bookmarkFilter" class="input-field" style="width: auto;">
+                            <option value="">全部分类</option>
+                            <option v-for="cat in bookmarkCategories" :key="cat" :value="cat">{{ cat }}</option>
+                        </select>
+                        <button class="btn btn-white" @click="showBookmarkModal = true">+ 添加书签</button>
+                    </div>
+                </div>
+
+                <!-- 书签卡片网格展示 -->
+                <div v-for="(items, category) in filteredGroupedBookmarks" :key="category" style="margin-bottom: 32px;">
+                    <h3 style="font-size: 1.1rem; color: #888; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                        <span style="width: 4px; height: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 2px;"></span>
+                        {{ category }}
+                        <span style="font-size: 0.85rem; color: #555;">({{ items.length }})</span>
+                    </h3>
+                    
+                    <!-- 卡片网格 -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+                        <div v-for="bm in items" :key="bm.id" 
+                            class="bookmark-card"
+                            style="background: linear-gradient(145deg, #1a1a1a, #161616); border: 1px solid #2a2a2a; border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden;"
+                            @click="openBookmark(bm.url)"
+                            @mouseenter="$event.currentTarget.style.transform = 'translateY(-4px)'; $event.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.4)'; $event.currentTarget.style.borderColor = '#444'"
+                            @mouseleave="$event.currentTarget.style.transform = 'translateY(0)'; $event.currentTarget.style.boxShadow = 'none'; $event.currentTarget.style.borderColor = '#2a2a2a'">
+                            
+                            <!-- 顶部装饰线 -->
+                            <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);"></div>
+                            
+                            <!-- 网站图标和名称 -->
+                            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 14px;">
+                                <div style="width: 48px; height: 48px; background: #222; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                                    <img v-if="bm.icon" :src="bm.icon" style="width: 32px; height: 32px; object-fit: contain;" @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='flex'">
+                                    <span :style="{display: bm.icon ? 'none' : 'flex', fontSize: '1.5rem', alignItems: 'center', justifyContent: 'center'}">🔗</span>
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-weight: 600; color: #fff; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ bm.name }}</div>
+                                    <div style="font-size: 0.8rem; color: #666; margin-top: 4px;">{{ getDomainFromUrl(bm.url) }}</div>
+                                </div>
+                            </div>
+                            
+                            <!-- 描述 -->
+                            <div v-if="bm.description" style="font-size: 0.85rem; color: #888; margin-bottom: 14px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                {{ bm.description }}
+                            </div>
+                            
+                            <!-- URL 预览 -->
+                            <div style="font-size: 0.75rem; color: #444; background: #111; padding: 8px 12px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                {{ bm.url }}
+                            </div>
+                            
+                            <!-- 操作按钮 -->
+                            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;" @click.stop>
+                                <button class="btn btn-dark" style="padding: 6px 14px; font-size: 0.8rem; border-radius: 6px;" @click="editBookmark(bm)">✏️ 编辑</button>
+                                <button class="btn" style="padding: 6px 14px; font-size: 0.8rem; border-radius: 6px; background: #2a2a2a; color: #888;" @click="deleteBookmark(bm.id)">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 无书签提示 -->
+                <div v-if="bookmarks.length === 0" class="card" style="padding: 60px; text-align: center; color: #555;">
+                    <div style="font-size: 4rem; margin-bottom: 20px;">🔖</div>
+                    <p style="margin-bottom: 20px; font-size: 1.1rem;">暂无书签，开始收藏你常用的网站吧</p>
+                    <button class="btn btn-white" @click="showBookmarkModal = true">+ 添加第一个书签</button>
                 </div>
             </div>
 
@@ -420,6 +544,31 @@
                 </div>
             </div>
         </div>
+
+        <!-- 添加/编辑书签弹窗 -->
+        <div v-if="showBookmarkModal" class="modal-overlay" @click.self="showBookmarkModal = false">
+            <div class="modal-content">
+                <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 20px;">{{ editingBookmark ? '编辑书签' : '添加书签' }}</h3>
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div>
+                        <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">分类</label>
+                        <input v-model="bookmarkForm.category" class="input-field" placeholder="如：工作、学习、常用工具">
+                    </div>
+                    <div>
+                        <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">名称</label>
+                        <input v-model="bookmarkForm.name" class="input-field" placeholder="书签名称">
+                    </div>
+                    <div>
+                        <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">网址</label>
+                        <input v-model="bookmarkForm.url" class="input-field" placeholder="https://example.com">
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+                    <button class="btn btn-dark" @click="showBookmarkModal = false">取消</button>
+                    <button class="btn btn-white" @click="saveBookmark()">保存</button>
+                </div>
+            </div>
+        </div>
     </div>
     <script>
     const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
@@ -434,6 +583,17 @@
             const overdueTasks = ref([]);  // 延单任务
             const globalNotes = ref([]);
             const expandedCategories = ref({});
+            
+            // 书签相关
+            const bookmarks = ref([]);
+            const expandedBookmarkCategories = ref({});
+            const showBookmarkModal = ref(false);
+            const editingBookmark = ref(null);
+            const bookmarkForm = ref({ category: '', name: '', url: '', description: '' });
+            const bookmarkFilter = ref('');  // 书签分类筛选
+            
+            // 月报分类展开状态
+            const expandedMonthlyCategories = ref({});
             
             // 筛选
             const filterStatus = ref('');
@@ -643,6 +803,105 @@
                 expandedCategories.value[cat] = !expandedCategories.value[cat];
             }
             
+            // 书签功能
+            const groupedBookmarks = computed(() => {
+                const groups = {};
+                bookmarks.value.forEach(bm => {
+                    const cat = bm.category || '未分类';
+                    if (!groups[cat]) groups[cat] = [];
+                    groups[cat].push(bm);
+                });
+                return groups;
+            });
+            
+            // 书签分类列表
+            const bookmarkCategories = computed(() => {
+                return Object.keys(groupedBookmarks.value).sort();
+            });
+            
+            // 筛选后的书签分组
+            const filteredGroupedBookmarks = computed(() => {
+                if (!bookmarkFilter.value) {
+                    return groupedBookmarks.value;
+                }
+                const result = {};
+                if (groupedBookmarks.value[bookmarkFilter.value]) {
+                    result[bookmarkFilter.value] = groupedBookmarks.value[bookmarkFilter.value];
+                }
+                return result;
+            });
+            
+            // 从 URL 提取域名
+            function getDomainFromUrl(url) {
+                try {
+                    const parsed = new URL(url);
+                    return parsed.hostname;
+                } catch {
+                    return url;
+                }
+            }
+            
+            async function loadBookmarks() {
+                try {
+                    const res = await axios.get('/api/bookmarks');
+                    bookmarks.value = res.data;
+                    Object.keys(groupedBookmarks.value).forEach(cat => {
+                        if (expandedBookmarkCategories.value[cat] === undefined) {
+                            expandedBookmarkCategories.value[cat] = true;
+                        }
+                    });
+                } catch (e) { console.error('加载书签失败', e); }
+            }
+            
+            function toggleBookmarkCategory(cat) {
+                expandedBookmarkCategories.value[cat] = !expandedBookmarkCategories.value[cat];
+            }
+            
+            function toggleMonthlyCategory(cat) {
+                expandedMonthlyCategories.value[cat] = !expandedMonthlyCategories.value[cat];
+            }
+            
+            function openBookmark(url) {
+                window.open(url, '_blank');
+            }
+            
+            function editBookmark(bm) {
+                editingBookmark.value = bm;
+                bookmarkForm.value = { category: bm.category, name: bm.name, url: bm.url };
+                showBookmarkModal.value = true;
+            }
+            
+            async function saveBookmark() {
+                if (!bookmarkForm.value.name || !bookmarkForm.value.url) {
+                    alert('请填写书签名称和网址');
+                    return;
+                }
+                const data = {
+                    category: bookmarkForm.value.category || '未分类',
+                    name: bookmarkForm.value.name,
+                    url: bookmarkForm.value.url
+                };
+                try {
+                    if (editingBookmark.value) {
+                        await axios.put(`/api/bookmarks/${editingBookmark.value.id}`, data);
+                    } else {
+                        await axios.post('/api/bookmarks', data);
+                    }
+                    showBookmarkModal.value = false;
+                    editingBookmark.value = null;
+                    bookmarkForm.value = { category: '', name: '', url: '' };
+                    loadBookmarks();
+                } catch (e) { alert('保存失败'); }
+            }
+            
+            async function deleteBookmark(id) {
+                if (!confirm('确定删除此书签？')) return;
+                try {
+                    await axios.delete(`/api/bookmarks/${id}`);
+                    loadBookmarks();
+                } catch (e) { alert('删除失败'); }
+            }
+            
             function getStatusText(status) {
                 const map = { pending: '待处理', in_progress: '进行中', completed: '已完成', cancelled: '已取消' };
                 return map[status] || status;
@@ -768,6 +1027,7 @@
                 loadPeriodTasks();
                 loadOverdueTasks();
                 loadGlobalNotes();
+                loadBookmarks();
             });
             
             return {
@@ -777,6 +1037,13 @@
                 reqForm, newTodayTask, newNoteType, newNoteContent, stats, groupedRequirements,
                 mdViewType, mdViewDate, markdownSource, markdownPreviewHtml,
                 selectedYear, selectedMonth, yearOptions, monthlyReport,
+                // 书签相关
+                bookmarks, expandedBookmarkCategories, showBookmarkModal, editingBookmark, bookmarkForm, groupedBookmarks,
+                loadBookmarks, toggleBookmarkCategory, openBookmark, editBookmark, saveBookmark, deleteBookmark,
+                bookmarkFilter, bookmarkCategories, filteredGroupedBookmarks, getDomainFromUrl,
+                // 月报分类展开
+                expandedMonthlyCategories, toggleMonthlyCategory,
+                // 其他方法
                 openAddModal, editRequirement, saveRequirement, deleteRequirement, toggleTaskCompletion,
                 addTodayTask, toggleTodayTask, deleteTodayTask, addGlobalNote, deleteGlobalNote,
                 toggleCategory, getStatusText, loadMarkdownPreview, copyMarkdown, downloadMarkdown,

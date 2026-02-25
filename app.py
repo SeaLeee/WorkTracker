@@ -21,6 +21,7 @@ REQUIREMENTS_FILE = DATA_DIR / 'requirements.md'
 DAILY_DIR = DATA_DIR / 'daily'
 MONTHLY_DIR = DATA_DIR / 'monthly'
 GLOBAL_NOTES_FILE = DATA_DIR / 'global_notes.md'
+BOOKMARKS_FILE = DATA_DIR / 'bookmarks.md'
 
 DAILY_DIR.mkdir(exist_ok=True)
 MONTHLY_DIR.mkdir(exist_ok=True)
@@ -233,16 +234,40 @@ def parse_daily_record(date_str=None):
     
     content = daily_file.read_text(encoding='utf-8')
     
-    # 解析任务
+    # 解析任务 - 新格式包含分类: - [x] **优先级** [分类] 任务描述 | ID:xxx
     tasks = []
-    task_pattern = r'- \[([ x])\] \*\*(\S+)\*\* (.+?) \| ID:(\w+)'
-    for match in re.finditer(task_pattern, content):
+    # 尝试新格式（带分类）
+    task_pattern_new = r'- \[([ x])\] \*\*(\S+)\*\* \[(.+?)\] (.+?) \| ID:(\w+)'
+    # 旧格式（不带分类）
+    task_pattern_old = r'- \[([ x])\] \*\*(\S+)\*\* (.+?) \| ID:(\w+)'
+    
+    matched_ids = set()
+    
+    # 先匹配新格式
+    for match in re.finditer(task_pattern_new, content):
+        task_id = match.group(5)
+        matched_ids.add(task_id)
         tasks.append({
             'completed': match.group(1) == 'x',
             'priority': match.group(2),
-            'description': match.group(3),
-            'id': match.group(4)
+            'category': match.group(3),
+            'description': match.group(4),
+            'name': match.group(4),  # 别名，用于月报
+            'id': task_id
         })
+    
+    # 再匹配旧格式（不在新格式中的）
+    for match in re.finditer(task_pattern_old, content):
+        task_id = match.group(4)
+        if task_id not in matched_ids:
+            tasks.append({
+                'completed': match.group(1) == 'x',
+                'priority': match.group(2),
+                'category': '未分类',
+                'description': match.group(3),
+                'name': match.group(3),  # 别名，用于月报
+                'id': task_id
+            })
     
     # 解析注意事项
     notes_match = re.search(r'## 今日注意\n\n(.*?)(?=\n## |$)', content, re.DOTALL)
@@ -298,6 +323,9 @@ def generate_monthly_report(year, month):
     high_priority_total = 0
     daily_stats = []
     
+    # 按分类汇总任务
+    category_tasks = {}  # {分类: [{task_info}, ...]}
+    
     for daily_file in sorted(daily_files):
         date_str = daily_file.stem
         record = parse_daily_record(date_str)
@@ -318,10 +346,41 @@ def generate_monthly_report(year, month):
             'completed': day_completed,
             'completion_rate': round(day_completed / day_total * 100, 1) if day_total > 0 else 0
         })
+        
+        # 收集任务到分类中
+        for task in record['tasks']:
+            category = task.get('category', '未分类')
+            if category not in category_tasks:
+                category_tasks[category] = []
+            
+            task_info = {
+                'name': task.get('name', ''),
+                'completed': task.get('completed', False),
+                'priority': task.get('priority', '中'),
+                'date': date_str
+            }
+            category_tasks[category].append(task_info)
     
     # 生成月报内容
     completion_rate = round(completed_tasks / total_tasks * 100, 1) if total_tasks > 0 else 0
     high_completion_rate = round(high_priority_completed / high_priority_total * 100, 1) if high_priority_total > 0 else 0
+    
+    # 按分类统计
+    category_summary = []
+    for category, tasks in category_tasks.items():
+        cat_total = len(tasks)
+        cat_completed = sum(1 for t in tasks if t['completed'])
+        cat_rate = round(cat_completed / cat_total * 100, 1) if cat_total > 0 else 0
+        category_summary.append({
+            'category': category,
+            'total': cat_total,
+            'completed': cat_completed,
+            'completion_rate': cat_rate,
+            'tasks': tasks
+        })
+    
+    # 按任务数量排序
+    category_summary.sort(key=lambda x: x['total'], reverse=True)
     
     report = {
         'month': month_str,
@@ -332,21 +391,58 @@ def generate_monthly_report(year, month):
         'high_priority_completed': high_priority_completed,
         'high_completion_rate': high_completion_rate,
         'daily_stats': daily_stats,
-        'working_days': len(daily_files)
+        'working_days': len(daily_files),
+        'category_summary': category_summary  # 新增：分类汇总
     }
     
     # 保存月报 Markdown
     report_content = f"""# 月度工作报告 - {month_str}
 
-## 总体概况
+## 📋 总体概况
 
-- **工作天数**: {report['working_days']} 天
-- **总任务数**: {total_tasks}
-- **已完成任务**: {completed_tasks}
-- **完成率**: {completion_rate}%
-- **高优先级任务完成率**: {high_completion_rate}%
+| 指标 | 数值 |
+|------|------|
+| 工作天数 | {report['working_days']} 天 |
+| 总任务数 | {total_tasks} |
+| 已完成任务 | {completed_tasks} |
+| 完成率 | {completion_rate}% |
+| 高优先级完成率 | {high_completion_rate}% |
 
-## 每日完成情况
+---
+
+## 📂 本月工作内容（按分类）
+
+"""
+    # 按分类输出任务详情
+    for cat_info in category_summary:
+        category = cat_info['category']
+        cat_completed = cat_info['completed']
+        cat_total = cat_info['total']
+        cat_rate = cat_info['completion_rate']
+        
+        report_content += f"### 【{category}】 ({cat_completed}/{cat_total} 完成率 {cat_rate}%)\n\n"
+        
+        # 按完成状态分组显示
+        completed_tasks_list = [t for t in cat_info['tasks'] if t['completed']]
+        pending_tasks_list = [t for t in cat_info['tasks'] if not t['completed']]
+        
+        if completed_tasks_list:
+            report_content += "**✅ 已完成：**\n"
+            for task in completed_tasks_list:
+                priority_icon = {'高': '🔴', '中': '🟡', '低': '🟢'}.get(task['priority'], '⚪')
+                report_content += f"  - {priority_icon} {task['name']} ({task['date']})\n"
+            report_content += "\n"
+        
+        if pending_tasks_list:
+            report_content += "**⏳ 未完成：**\n"
+            for task in pending_tasks_list:
+                priority_icon = {'高': '🔴', '中': '🟡', '低': '🟢'}.get(task['priority'], '⚪')
+                report_content += f"  - {priority_icon} {task['name']} ({task['date']})\n"
+            report_content += "\n"
+        
+        report_content += "---\n\n"
+    
+    report_content += """## 📊 每日完成情况
 
 | 日期 | 总任务 | 已完成 | 完成率 |
 |------|--------|--------|--------|
@@ -355,7 +451,9 @@ def generate_monthly_report(year, month):
         report_content += f"| {stat['date']} | {stat['total']} | {stat['completed']} | {stat['completion_rate']}% |\n"
     
     report_content += """
-## 分析与建议
+---
+
+## 💡 分析与建议
 
 """
     # 添加自动分析
@@ -368,6 +466,17 @@ def generate_monthly_report(year, month):
     
     if high_completion_rate < completion_rate:
         report_content += "- 📌 高优先级任务完成率低于平均水平，建议优先处理重要任务。\n"
+    
+    # 找出任务最多的分类
+    if category_summary:
+        top_category = category_summary[0]
+        report_content += f"- 📁 本月主要工作集中在【{top_category['category']}】，共 {top_category['total']} 项任务。\n"
+        
+        # 找出完成率最低的分类（任务数>2）
+        low_rate_cats = [c for c in category_summary if c['total'] > 2 and c['completion_rate'] < 60]
+        if low_rate_cats:
+            for cat in low_rate_cats:
+                report_content += f"- ⚠️ 【{cat['category']}】分类完成率偏低（{cat['completion_rate']}%），需关注。\n"
     
     monthly_file = MONTHLY_DIR / f'{month_str}.md'
     monthly_file.write_text(report_content, encoding='utf-8')
@@ -1115,7 +1224,157 @@ def read_daily_markdown(date_str):
     return jsonify({'exists': False, 'content': ''})
 
 
+# ==================== 书签功能 ====================
+
+def init_bookmarks_file():
+    """初始化书签文件"""
+    if not BOOKMARKS_FILE.exists():
+        content = """# 我的书签
+
+<!-- 书签格式: - [分类] 名称 | URL | 图标 | 描述 | ID -->
+
+"""
+        BOOKMARKS_FILE.write_text(content, encoding='utf-8')
+
+
+def get_favicon_url(url):
+    """获取网站 favicon 图标 URL"""
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        domain = f"{parsed.scheme}://{parsed.netloc}"
+        # 使用 Google 的 favicon 服务
+        return f"https://www.google.com/s2/favicons?domain={parsed.netloc}&sz=64"
+    except:
+        return ""
+
+
+def parse_bookmarks():
+    """解析书签文件"""
+    init_bookmarks_file()
+    content = BOOKMARKS_FILE.read_text(encoding='utf-8')
+    
+    bookmarks = []
+    # 新格式: - [分类] 名称 | URL | 图标 | 描述 | ID:xxx
+    pattern_new = r'- \[(.+?)\] (.+?) \| (.+?) \| (.+?) \| (.+?) \| ID:(\w+)'
+    # 旧格式: - [分类] 名称 | URL | ID:xxx
+    pattern_old = r'- \[(.+?)\] (.+?) \| (.+?) \| ID:(\w+)'
+    
+    matched_ids = set()
+    
+    # 先匹配新格式
+    for match in re.finditer(pattern_new, content):
+        bookmark_id = match.group(6)
+        matched_ids.add(bookmark_id)
+        url = match.group(3)
+        icon = match.group(4)
+        # 如果没有图标，自动获取
+        if icon == '-' or not icon.startswith('http'):
+            icon = get_favicon_url(url)
+        bookmarks.append({
+            'id': bookmark_id,
+            'category': match.group(1),
+            'name': match.group(2),
+            'url': url,
+            'icon': icon,
+            'description': match.group(5) if match.group(5) != '-' else ''
+        })
+    
+    # 再匹配旧格式
+    for match in re.finditer(pattern_old, content):
+        bookmark_id = match.group(4)
+        if bookmark_id in matched_ids:
+            continue
+        url = match.group(3)
+        bookmarks.append({
+            'id': bookmark_id,
+            'category': match.group(1),
+            'name': match.group(2),
+            'url': url,
+            'icon': get_favicon_url(url),
+            'description': ''
+        })
+    
+    return bookmarks
+
+
+def save_bookmarks(bookmarks):
+    """保存书签到文件"""
+    content = """# 我的书签
+
+<!-- 书签格式: - [分类] 名称 | URL | 图标 | 描述 | ID -->
+
+"""
+    for bm in bookmarks:
+        icon = bm.get('icon', '-') or '-'
+        desc = bm.get('description', '-') or '-'
+        content += f"- [{bm['category']}] {bm['name']} | {bm['url']} | {icon} | {desc} | ID:{bm['id']}\n"
+    
+    BOOKMARKS_FILE.write_text(content, encoding='utf-8')
+
+
+@app.route('/api/bookmarks', methods=['GET'])
+def get_bookmarks():
+    """获取所有书签"""
+    bookmarks = parse_bookmarks()
+    return jsonify(bookmarks)
+
+
+@app.route('/api/bookmarks', methods=['POST'])
+def add_or_save_bookmarks():
+    """添加书签或保存整个书签列表"""
+    data = request.json
+    
+    # 如果是数组，直接保存整个列表
+    if isinstance(data, list):
+        save_bookmarks(data)
+        return jsonify({'success': True})
+    
+    # 如果是单个对象，添加新书签
+    bookmarks = parse_bookmarks()
+    import uuid
+    
+    new_bookmark = {
+        'id': str(uuid.uuid4())[:8],
+        'category': data.get('category', '常用'),
+        'name': data.get('name', ''),
+        'url': data.get('url', '')
+    }
+    
+    bookmarks.append(new_bookmark)
+    save_bookmarks(bookmarks)
+    
+    return jsonify(new_bookmark)
+
+
+@app.route('/api/bookmarks/<bookmark_id>', methods=['PUT'])
+def update_bookmark(bookmark_id):
+    """更新书签"""
+    data = request.json
+    bookmarks = parse_bookmarks()
+    
+    for bm in bookmarks:
+        if bm['id'] == bookmark_id:
+            bm['category'] = data.get('category', bm['category'])
+            bm['name'] = data.get('name', bm['name'])
+            bm['url'] = data.get('url', bm['url'])
+            break
+    
+    save_bookmarks(bookmarks)
+    return jsonify({'success': True})
+
+
+@app.route('/api/bookmarks/<bookmark_id>', methods=['DELETE'])
+def delete_bookmark(bookmark_id):
+    """删除书签"""
+    bookmarks = parse_bookmarks()
+    bookmarks = [bm for bm in bookmarks if bm['id'] != bookmark_id]
+    save_bookmarks(bookmarks)
+    return jsonify({'success': True})
+
+
 if __name__ == '__main__':
     init_requirements_file()
     init_global_notes_file()
+    init_bookmarks_file()
     app.run(debug=True, port=5000)
