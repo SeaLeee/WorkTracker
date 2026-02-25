@@ -410,90 +410,153 @@
 
             <!-- 工作笔记视图 -->
             <div v-if="currentView === 'notes'">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2 style="font-size: 1.5rem; font-weight: 600;">📝 工作笔记</h2>
-                    <button class="btn btn-white" @click="createNewNote()">+ 新建笔记</button>
-                </div>
-                
-                <!-- 笔记编辑器 -->
-                <div v-if="currentNote" style="display: flex; gap: 20px; height: calc(100vh - 200px);">
-                    <!-- 左侧笔记列表 -->
-                    <div style="width: 250px; flex-shrink: 0; background: #1a1a1a; border-radius: 12px; overflow: hidden;">
-                        <div style="padding: 12px; border-bottom: 1px solid #333; font-weight: 600; color: #888;">
-                            笔记列表 ({{ notesList.length }})
+                <!-- 笔记列表模式 -->
+                <div v-if="!currentNote">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 style="font-size: 1.5rem; font-weight: 600;">📝 工作笔记</h2>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <!-- 分类筛选 -->
+                            <select v-model="noteFilterCategory" class="input-field" style="width: auto;">
+                                <option value="">全部分类</option>
+                                <option v-for="cat in noteCategories" :key="cat" :value="cat">{{ cat }}</option>
+                            </select>
+                            <button class="btn btn-white" @click="showNoteCreateModal = true">+ 新建笔记</button>
                         </div>
-                        <div style="max-height: calc(100vh - 280px); overflow-y: auto;">
-                            <div v-for="note in notesList" :key="note.id" 
-                                @click="loadNote(note.id)"
-                                :style="{
-                                    padding: '12px 16px',
-                                    cursor: 'pointer',
-                                    borderLeft: currentNote.id === note.id ? '3px solid #3b82f6' : '3px solid transparent',
-                                    background: currentNote.id === note.id ? '#252525' : 'transparent'
-                                }"
-                                @mouseenter="$event.target.style.background = '#252525'"
-                                @mouseleave="$event.target.style.background = currentNote.id === note.id ? '#252525' : 'transparent'">
-                                <div style="font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                    {{ note.title }}
+                    </div>
+                    
+                    <!-- 博客式笔记列表 -->
+                    <div v-if="filteredNotesList.length > 0">
+                        <!-- 按分类分组显示 -->
+                        <div v-for="(notes, category) in groupedNotes" :key="category" style="margin-bottom: 32px;">
+                            <h3 style="font-size: 1rem; color: #818cf8; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #333;">
+                                📂 {{ category }} ({{ notes.length }})
+                            </h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 16px;">
+                                <div v-for="note in notes" :key="note.id" 
+                                    class="card" 
+                                    style="padding: 20px; cursor: pointer; transition: all 0.2s; border: 1px solid #2a2a2a;"
+                                    @click="loadNote(note.id)"
+                                    @mouseenter="$event.target.style.borderColor = '#3b82f6'; $event.target.style.transform = 'translateY(-2px)';"
+                                    @mouseleave="$event.target.style.borderColor = '#2a2a2a'; $event.target.style.transform = 'none';">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                        <h4 style="font-size: 1.1rem; font-weight: 600; margin: 0;">{{ note.title }}</h4>
+                                        <span style="font-size: 0.75rem; color: #666; white-space: nowrap;">{{ note.modified_time }}</span>
+                                    </div>
+                                    <p style="color: #888; font-size: 0.9rem; line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                        {{ note.summary || '暂无内容...' }}
+                                    </p>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div style="display: flex; gap: 6px;">
+                                            <span v-for="tag in (note.tags || []).slice(0, 3)" :key="tag" 
+                                                style="padding: 2px 8px; background: #2a2a2a; border-radius: 4px; font-size: 0.75rem; color: #888;">
+                                                {{ tag }}
+                                            </span>
+                                        </div>
+                                        <span style="font-size: 0.75rem; color: #555;">{{ note.created_time }}</span>
+                                    </div>
                                 </div>
-                                <div style="font-size: 0.75rem; color: #666;">{{ note.modified_time }}</div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- 右侧编辑器区域 -->
-                    <div style="flex: 1; display: flex; flex-direction: column; background: #1a1a1a; border-radius: 12px; overflow: hidden;">
-                        <!-- 工具栏 -->
-                        <div style="padding: 12px 16px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <span style="font-weight: 600;">{{ currentNote.title || '未命名' }}</span>
-                                <span style="font-size: 0.8rem; color: #666;">{{ currentNote.modified_time }}</span>
-                            </div>
-                            <div style="display: flex; gap: 8px;">
-                                <button class="btn" :class="noteViewMode === 'edit' ? 'btn-white' : 'btn-dark'" 
-                                    @click="noteViewMode = 'edit'" style="padding: 6px 12px; font-size: 0.85rem;">编辑</button>
-                                <button class="btn" :class="noteViewMode === 'preview' ? 'btn-white' : 'btn-dark'" 
-                                    @click="noteViewMode = 'preview'" style="padding: 6px 12px; font-size: 0.85rem;">预览</button>
-                                <button class="btn" :class="noteViewMode === 'split' ? 'btn-white' : 'btn-dark'" 
-                                    @click="noteViewMode = 'split'" style="padding: 6px 12px; font-size: 0.85rem;">分屏</button>
-                                <button class="btn btn-dark" @click="saveCurrentNote()" style="padding: 6px 12px; font-size: 0.85rem; margin-left: 8px;">💾 保存</button>
-                                <button class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #dc2626; color: white;" @click="deleteCurrentNote()">🗑️ 删除</button>
-                            </div>
-                        </div>
-                        
-                        <!-- 编辑/预览区域 -->
-                        <div style="flex: 1; display: flex; overflow: hidden;">
-                            <!-- 编辑器 -->
-                            <div v-if="noteViewMode === 'edit' || noteViewMode === 'split'" 
-                                :style="{flex: noteViewMode === 'split' ? '1' : '1', borderRight: noteViewMode === 'split' ? '1px solid #333' : 'none'}">
-                                <textarea v-model="currentNote.content" 
-                                    @input="noteUnsaved = true"
-                                    style="width: 100%; height: 100%; background: #0d0d0d; color: #e0e0e0; border: none; padding: 16px; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; line-height: 1.6; resize: none; outline: none;"
-                                    placeholder="开始编写 Markdown 笔记..."></textarea>
-                            </div>
-                            <!-- 预览 -->
-                            <div v-if="noteViewMode === 'preview' || noteViewMode === 'split'" 
-                                :style="{flex: '1', padding: '16px', overflow: 'auto', background: '#0d0d0d'}"
-                                class="markdown-preview"
-                                v-html="renderMarkdown(currentNote.content)">
-                            </div>
-                        </div>
-                        
-                        <!-- 状态栏 -->
-                        <div style="padding: 8px 16px; border-top: 1px solid #333; font-size: 0.75rem; color: #666; display: flex; justify-content: space-between;">
-                            <span>字符: {{ currentNote.content ? currentNote.content.length : 0 }}</span>
-                            <span v-if="noteUnsaved" style="color: #f59e0b;">● 未保存</span>
-                            <span v-else style="color: #22c55e;">✓ 已保存</span>
-                        </div>
+                    <!-- 空状态 -->
+                    <div v-else class="card" style="padding: 60px; text-align: center;">
+                        <div style="font-size: 4rem; margin-bottom: 16px;">📝</div>
+                        <h3 style="margin-bottom: 8px;">开始记录工作笔记</h3>
+                        <p style="color: #666; margin-bottom: 24px;">使用 Markdown 格式记录你的工作心得、技术笔记等</p>
+                        <button class="btn btn-white" @click="showNoteCreateModal = true">创建第一篇笔记</button>
                     </div>
                 </div>
                 
-                <!-- 空状态 -->
-                <div v-else class="card" style="padding: 60px; text-align: center;">
-                    <div style="font-size: 4rem; margin-bottom: 16px;">📝</div>
-                    <h3 style="margin-bottom: 8px;">开始记录工作笔记</h3>
-                    <p style="color: #666; margin-bottom: 24px;">使用 Markdown 格式记录你的工作心得、技术笔记等</p>
-                    <button class="btn btn-white" @click="createNewNote()">创建第一篇笔记</button>
+                <!-- 笔记编辑模式 -->
+                <div v-else>
+                    <!-- 返回按钮和工具栏 -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; gap: 16px;">
+                            <button class="btn btn-dark" @click="closeNoteEditor()" style="padding: 8px 16px;">
+                                ← 返回列表
+                            </button>
+                            <div>
+                                <h2 style="font-size: 1.2rem; font-weight: 600; margin: 0;">{{ currentNote.title }}</h2>
+                                <div style="font-size: 0.8rem; color: #666;">
+                                    <span style="color: #818cf8;">{{ currentNote.category }}</span> · {{ currentNote.modified_time }}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn" :class="noteViewMode === 'edit' ? 'btn-white' : 'btn-dark'" 
+                                @click="noteViewMode = 'edit'" style="padding: 6px 12px; font-size: 0.85rem;">📝 编辑</button>
+                            <button class="btn" :class="noteViewMode === 'preview' ? 'btn-white' : 'btn-dark'" 
+                                @click="noteViewMode = 'preview'" style="padding: 6px 12px; font-size: 0.85rem;">👁 预览</button>
+                            <button class="btn" :class="noteViewMode === 'split' ? 'btn-white' : 'btn-dark'" 
+                                @click="noteViewMode = 'split'" style="padding: 6px 12px; font-size: 0.85rem;">⬚ 分屏</button>
+                            <button class="btn btn-dark" @click="saveCurrentNote()" style="padding: 6px 12px; font-size: 0.85rem; margin-left: 8px;">
+                                💾 保存 <span v-if="noteUnsaved" style="color: #f59e0b;">●</span>
+                            </button>
+                            <button class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #dc2626; color: white;" @click="deleteCurrentNote()">🗑️</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 编辑器区域 -->
+                    <div class="card" style="padding: 0; overflow: hidden; height: calc(100vh - 200px);">
+                        <div style="height: 100%; display: flex;">
+                            <!-- 编辑器 -->
+                            <div v-if="noteViewMode === 'edit' || noteViewMode === 'split'" 
+                                :style="{flex: '1', borderRight: noteViewMode === 'split' ? '1px solid #333' : 'none', display: 'flex', flexDirection: 'column'}">
+                                <textarea v-model="currentNote.body" 
+                                    @input="noteUnsaved = true; updateNoteContent()"
+                                    style="flex: 1; width: 100%; background: #0d0d0d; color: #e0e0e0; border: none; padding: 20px; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; line-height: 1.8; resize: none; outline: none;"
+                                    placeholder="开始编写 Markdown 笔记...
+
+支持的 Markdown 语法：
+# 一级标题
+## 二级标题
+**粗体** *斜体*
+- 无序列表
+1. 有序列表
+`行内代码`
+```代码块```
+[链接](url)
+> 引用"></textarea>
+                                <!-- 状态栏 -->
+                                <div style="padding: 8px 16px; border-top: 1px solid #333; font-size: 0.75rem; color: #666; display: flex; justify-content: space-between; background: #1a1a1a;">
+                                    <span>字符: {{ currentNote.body ? currentNote.body.length : 0 }}</span>
+                                    <span>行数: {{ currentNote.body ? currentNote.body.split('\n').length : 0 }}</span>
+                                </div>
+                            </div>
+                            <!-- 预览 -->
+                            <div v-if="noteViewMode === 'preview' || noteViewMode === 'split'" 
+                                :style="{flex: '1', padding: '20px', overflow: 'auto', background: '#0d0d0d'}"
+                                class="markdown-preview markdown-body"
+                                v-html="renderMarkdownFull(currentNote.body)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 新建笔记弹窗 -->
+            <div v-if="showNoteCreateModal" class="modal-overlay" @click.self="showNoteCreateModal = false">
+                <div class="modal-content" style="max-width: 500px;">
+                    <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 20px;">📝 新建笔记</h3>
+                    <div class="form-group">
+                        <label class="form-label">笔记标题</label>
+                        <input type="text" v-model="newNoteForm.title" class="input-field" placeholder="输入笔记标题">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">分类</label>
+                        <div style="display: flex; gap: 8px;">
+                            <select v-model="newNoteForm.category" class="input-field" style="flex: 1;">
+                                <option value="">选择已有分类</option>
+                                <option v-for="cat in noteCategories" :key="cat" :value="cat">{{ cat }}</option>
+                            </select>
+                            <input type="text" v-model="newNoteForm.newCategory" class="input-field" style="flex: 1;" placeholder="或输入新分类">
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-dark" @click="showNoteCreateModal = false">取消</button>
+                        <button class="btn btn-white" @click="createNewNote()">创建</button>
+                    </div>
                 </div>
             </div>
 
@@ -540,6 +603,7 @@
                             <option v-for="m in 12" :key="m" :value="m">{{ m }} 月</option>
                         </select>
                         <button class="btn btn-white" @click="generateMonthlyReport()">📈 生成月报</button>
+                        <button v-if="monthlyReport" class="btn" style="background:#3b82f6;" @click="saveMonthlyReportAsNote()">📝 保存为笔记</button>
                     </div>
                 </div>
 
@@ -788,19 +852,20 @@
                                 {{ day.totalHours }}h
                             </div>
                             
-                            <!-- 任务数量 -->
-                            <div v-if="day.tasks.length > 0" class="task-count">
-                                {{ day.tasks.length }} 个任务
-                            </div>
-                            
-                            <!-- 任务点 -->
-                            <div v-if="day.tasks.length > 0" class="task-dots">
-                                <div v-for="(task, idx) in day.tasks.slice(0, 6)" :key="idx"
-                                    class="task-dot"
-                                    :style="{background: task.priority === 'high' ? '#fff' : task.priority === 'medium' ? '#666' : '#333'}"
-                                    :title="task.title">
+                            <!-- 任务列表预览 - 显示前2个任务名（截取前6个字） -->
+                            <div v-if="day.tasks.length > 0" style="margin-top: 4px; padding: 0 2px; overflow: hidden;">
+                                <div v-for="(task, idx) in day.tasks.slice(0, 2)" :key="idx"
+                                    style="font-size: 0.6rem; line-height: 1.2; margin-bottom: 2px; padding: 1px 3px; border-radius: 2px;"
+                                    :style="{
+                                        background: task.priority === 'high' ? '#3a1e1e' : task.priority === 'medium' ? '#2a2a1e' : '#1e2a2a',
+                                        color: task.priority === 'high' ? '#fca5a5' : task.priority === 'medium' ? '#fcd34d' : '#86efac'
+                                    }"
+                                    :title="task.title + ' [' + task.category + ']'">
+                                    {{ task.title.length > 6 ? task.title.substring(0, 6) + '..' : task.title }}
                                 </div>
-                                <span v-if="day.tasks.length > 6" style="font-size: 0.65rem; color: #666;">+{{ day.tasks.length - 6 }}</span>
+                                <div v-if="day.tasks.length > 2" style="font-size: 0.6rem; color: #666; text-align: center;">
+                                    +{{ day.tasks.length - 2 }} 更多
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1143,6 +1208,35 @@
             const currentNote = ref(null);
             const noteViewMode = ref('split'); // edit, preview, split
             const noteUnsaved = ref(false);
+            const noteFilterCategory = ref('');
+            const showNoteCreateModal = ref(false);
+            const newNoteForm = ref({ title: '', category: '', newCategory: '' });
+            
+            // 笔记分类计算
+            const noteCategories = computed(() => {
+                const cats = new Set();
+                notesList.value.forEach(n => {
+                    if (n.category) cats.add(n.category);
+                });
+                return Array.from(cats).sort();
+            });
+            
+            // 过滤后的笔记列表
+            const filteredNotesList = computed(() => {
+                if (!noteFilterCategory.value) return notesList.value;
+                return notesList.value.filter(n => n.category === noteFilterCategory.value);
+            });
+            
+            // 按分类分组笔记
+            const groupedNotes = computed(() => {
+                const groups = {};
+                filteredNotesList.value.forEach(note => {
+                    const cat = note.category || '未分类';
+                    if (!groups[cat]) groups[cat] = [];
+                    groups[cat].push(note);
+                });
+                return groups;
+            });
             
             // 月报相关
             const currentYear = new Date().getFullYear();
@@ -1782,6 +1876,88 @@
                 }
             }
             
+            // 生成月报 Markdown 并保存到笔记
+            async function saveMonthlyReportAsNote() {
+                if (!monthlyReport.value) {
+                    alert('请先生成月报');
+                    return;
+                }
+                
+                const report = monthlyReport.value;
+                const yearMonth = `${selectedYear.value}年${selectedMonth.value}月`;
+                
+                // 构建 Markdown 内容
+                let md = `# ${yearMonth} 工作月报\n\n`;
+                md += `> 生成时间：${new Date().toLocaleString()}\n\n`;
+                
+                // 概览统计
+                md += `## 📊 月度概览\n\n`;
+                md += `| 指标 | 数值 |\n`;
+                md += `|------|------|\n`;
+                md += `| 工作天数 | ${report.working_days} 天 |\n`;
+                md += `| 任务总数 | ${report.total_tasks} 个 |\n`;
+                md += `| 完成任务 | ${report.completed_tasks} 个 |\n`;
+                md += `| 完成率 | ${report.completion_rate}% |\n`;
+                md += `| 高优先级完成率 | ${report.high_completion_rate || 'N/A'}% |\n\n`;
+                
+                // 分类汇总
+                if (report.category_summary && report.category_summary.length > 0) {
+                    md += `## 📁 分类汇总\n\n`;
+                    report.category_summary.forEach(cat => {
+                        md += `### ${cat.category}\n\n`;
+                        md += `- 总任务数：${cat.total}\n`;
+                        md += `- 已完成：${cat.completed}\n`;
+                        md += `- 完成率：${cat.rate}%\n\n`;
+                        
+                        // 任务详情
+                        if (cat.items && cat.items.length > 0) {
+                            md += `**任务详情：**\n\n`;
+                            cat.items.forEach(item => {
+                                const statusMap = { 'pending': '⏳待处理', 'in_progress': '🔄进行中', 'completed': '✅已完成', 'cancelled': '❌已取消' };
+                                const priorityMap = { 'high': '🔴高', 'medium': '🟡中', 'low': '🟢低' };
+                                const status = statusMap[item.status] || item.status;
+                                const priority = priorityMap[item.priority] || item.priority;
+                                md += `- **${item.title}** [${priority}] ${status}\n`;
+                                if (item.notes) {
+                                    md += `  - 备注：${item.notes.replace(/\n/g, ' ')}\n`;
+                                }
+                            });
+                            md += `\n`;
+                        }
+                    });
+                }
+                
+                // 每日统计
+                if (report.daily_stats && report.daily_stats.length > 0) {
+                    md += `## 📅 每日统计\n\n`;
+                    md += `| 日期 | 任务数 | 已完成 | 完成率 |\n`;
+                    md += `|------|--------|--------|--------|\n`;
+                    report.daily_stats.forEach(stat => {
+                        md += `| ${stat.date} | ${stat.total} | ${stat.completed} | ${stat.completion_rate}% |\n`;
+                    });
+                    md += `\n`;
+                }
+                
+                md += `---\n\n*此报告由 WorkTracker 自动生成*\n`;
+                
+                // 保存到笔记
+                try {
+                    const res = await axios.post('/api/notes', {
+                        title: `${yearMonth}工作月报`,
+                        category: '月报',
+                        content: md
+                    });
+                    await loadNotesList();
+                    alert(`月报已保存为笔记！\n标题：${yearMonth}工作月报`);
+                    // 可选：直接切换到笔记视图并打开该笔记
+                    // currentView.value = 'notes';
+                    // await loadNote(res.data.id);
+                } catch (e) {
+                    console.error('保存月报笔记失败', e);
+                    alert('保存月报笔记失败：' + (e.response?.data?.error || e.message));
+                }
+            }
+            
             // 保存 Markdown 到磁盘
             async function saveMarkdownToDisk() {
                 if (mdViewType.value === 'daily') {
@@ -1823,37 +1999,64 @@
             }
             
             async function createNewNote() {
-                // 检查是否有未保存的更改
-                if (noteUnsaved.value && currentNote.value) {
-                    if (!confirm('当前笔记有未保存的更改，是否放弃？')) {
-                        return;
-                    }
-                }
+                const title = newNoteForm.value.title || '新建笔记';
+                const category = newNoteForm.value.newCategory || newNoteForm.value.category || '未分类';
+                
                 try {
                     const res = await axios.post('/api/notes', {
-                        title: '新建笔记',
-                        content: '# 新建笔记\n\n在这里开始编写...'
+                        title: title,
+                        category: category,
+                        content: ''
                     });
                     await loadNotesList();
-                    currentNote.value = res.data;
-                    noteUnsaved.value = false;
+                    showNoteCreateModal.value = false;
+                    newNoteForm.value = { title: '', category: '', newCategory: '' };
+                    // 加载新创建的笔记
+                    await loadNote(res.data.id);
                 } catch (e) {
                     alert('创建笔记失败');
                 }
             }
             
+            // 关闭笔记编辑器
+            function closeNoteEditor() {
+                if (noteUnsaved.value) {
+                    if (!confirm('当前笔记有未保存的更改，是否放弃？')) {
+                        return;
+                    }
+                }
+                currentNote.value = null;
+                noteUnsaved.value = false;
+            }
+            
+            // 更新笔记内容（同步 body 到 content）
+            function updateNoteContent() {
+                if (!currentNote.value) return;
+                // 重建完整内容（frontmatter + body）
+                const frontmatter = `---
+title: ${currentNote.value.title}
+category: ${currentNote.value.category || '未分类'}
+created: ${currentNote.value.created_time || new Date().toISOString().split('T')[0]}
+---
+
+`;
+                currentNote.value.content = frontmatter + currentNote.value.body;
+            }
+            
             async function saveCurrentNote() {
                 if (!currentNote.value) return;
                 try {
-                    // 从内容中提取标题（第一个 # 开头的行）
-                    const lines = currentNote.value.content.split('\n');
-                    let title = '未命名';
+                    // 从 body 内容中提取标题（第一个 # 开头的行）
+                    const lines = (currentNote.value.body || '').split('\n');
+                    let title = currentNote.value.title || '未命名';
                     for (const line of lines) {
                         if (line.startsWith('# ')) {
                             title = line.substring(2).trim();
                             break;
                         }
                     }
+                    currentNote.value.title = title;
+                    updateNoteContent();
                     
                     await axios.put(`/api/notes/${currentNote.value.id}`, {
                         title: title,
@@ -1861,8 +2064,6 @@
                     });
                     noteUnsaved.value = false;
                     await loadNotesList();
-                    // 更新当前笔记的标题
-                    currentNote.value.title = title;
                 } catch (e) {
                     alert('保存笔记失败：' + (e.response?.data?.error || e.message));
                 }
@@ -1883,7 +2084,64 @@
                 }
             }
             
-            // 简单的 Markdown 渲染函数
+            // 完整的 Markdown 渲染函数
+            function renderMarkdownFull(content) {
+                if (!content) return '';
+                // 移除 frontmatter
+                let text = content;
+                if (text.startsWith('---')) {
+                    const parts = text.split('---');
+                    if (parts.length >= 3) {
+                        text = parts.slice(2).join('---').trim();
+                    }
+                }
+                
+                let html = text
+                    // 转义 HTML
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    // 代码块 - 先处理
+                    .replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+                        return `<pre style="background:#1a1a1a;padding:16px;border-radius:8px;overflow-x:auto;margin:16px 0;border:1px solid #333;"><code style="color:#e0e0e0;font-family:Consolas,Monaco,monospace;">${code}</code></pre>`;
+                    })
+                    // 行内代码
+                    .replace(/`([^`]+)`/g, '<code style="background:#2a2a2a;padding:2px 8px;border-radius:4px;color:#f59e0b;font-family:Consolas,Monaco,monospace;">$1</code>')
+                    // 标题
+                    .replace(/^#### (.+)$/gm, '<h4 style="margin:14px 0 6px;color:#ccc;font-size:1rem;">$1</h4>')
+                    .replace(/^### (.+)$/gm, '<h3 style="margin:18px 0 8px;color:#ddd;font-size:1.1rem;">$1</h3>')
+                    .replace(/^## (.+)$/gm, '<h2 style="margin:24px 0 12px;color:#fff;font-size:1.3rem;border-bottom:1px solid #333;padding-bottom:8px;">$1</h2>')
+                    .replace(/^# (.+)$/gm, '<h1 style="margin:28px 0 16px;color:#fff;font-size:1.8rem;border-bottom:2px solid #444;padding-bottom:12px;">$1</h1>')
+                    // 粗体和斜体
+                    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+                    .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#fff;">$1</strong>')
+                    .replace(/\*(.+?)\*/g, '<em style="color:#aaa;">$1</em>')
+                    // 删除线
+                    .replace(/~~(.+?)~~/g, '<del style="color:#666;">$1</del>')
+                    // 引用块
+                    .replace(/^&gt; (.+)$/gm, '<blockquote style="border-left:4px solid #3b82f6;padding-left:16px;margin:12px 0;color:#888;font-style:italic;">$1</blockquote>')
+                    // 链接
+                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#3b82f6;text-decoration:underline;">$1</a>')
+                    // 图片
+                    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:8px;margin:12px 0;">')
+                    // 任务列表
+                    .replace(/^- \[x\] (.+)$/gm, '<div style="margin:4px 0;"><span style="color:#22c55e;">☑</span> <span style="text-decoration:line-through;color:#666;">$1</span></div>')
+                    .replace(/^- \[ \] (.+)$/gm, '<div style="margin:4px 0;"><span style="color:#666;">☐</span> $1</div>')
+                    // 无序列表
+                    .replace(/^[\-\*] (.+)$/gm, '<li style="margin:4px 0 4px 24px;list-style:disc;">$1</li>')
+                    // 有序列表
+                    .replace(/^\d+\. (.+)$/gm, '<li style="margin:4px 0 4px 24px;list-style:decimal;">$1</li>')
+                    // 水平线
+                    .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #333;margin:24px 0;">')
+                    .replace(/^\*\*\*$/gm, '<hr style="border:none;border-top:1px solid #333;margin:24px 0;">')
+                    // 换行（保留段落）
+                    .replace(/\n\n/g, '</p><p style="margin:12px 0;line-height:1.8;">')
+                    .replace(/\n/g, '<br>');
+                
+                return `<div style="line-height:1.8;color:#ccc;"><p style="margin:12px 0;line-height:1.8;">${html}</p></div>`;
+            }
+            
+            // 简单的 Markdown 渲染函数（用于其他地方）
             function renderMarkdown(content) {
                 if (!content) return '';
                 let html = content
@@ -2052,9 +2310,9 @@
                 return days;
             });
             
-            // 获取某日期的任务列表
+            // 获取某日期的任务列表（普通任务在前，长期任务在后）
             function getTasksForDate(dateStr) {
-                return requirements.value.filter(req => {
+                const tasks = requirements.value.filter(req => {
                     // 已取消的不显示
                     if (req.status === 'cancelled') return false;
                     
@@ -2068,6 +2326,18 @@
                     }
                     
                     return false;
+                });
+                
+                // 排序：普通任务在前，长期任务在后；同类型内按优先级排序
+                const priorityOrder = { 'high': 0, 'medium': 1, 'low': 2 };
+                return tasks.sort((a, b) => {
+                    // 先按类型排序：normal < long_term
+                    const typeA = a.req_type === 'long_term' ? 1 : 0;
+                    const typeB = b.req_type === 'long_term' ? 1 : 0;
+                    if (typeA !== typeB) return typeA - typeB;
+                    
+                    // 再按优先级排序
+                    return (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99);
                 });
             }
             
@@ -2188,10 +2458,12 @@
                 openAddModal, editRequirement, saveRequirement, deleteRequirement, toggleTaskCompletion,
                 addTodayTask, toggleTodayTask, deleteTodayTask, addGlobalNote, deleteGlobalNote,
                 toggleCategory, getStatusText, loadMarkdownPreview, copyMarkdown, downloadMarkdown,
-                generateMonthlyReport, saveMarkdownToDisk,
+                generateMonthlyReport, saveMarkdownToDisk, saveMonthlyReportAsNote,
                 // 笔记相关
                 notesList, currentNote, noteViewMode, noteUnsaved,
-                loadNotesList, loadNote, createNewNote, saveCurrentNote, deleteCurrentNote, renderMarkdown
+                noteFilterCategory, showNoteCreateModal, newNoteForm, noteCategories, filteredNotesList, groupedNotes,
+                loadNotesList, loadNote, createNewNote, saveCurrentNote, deleteCurrentNote, closeNoteEditor,
+                updateNoteContent, renderMarkdown, renderMarkdownFull
             };
         }
     }).mount('#app');

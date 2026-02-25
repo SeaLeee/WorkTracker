@@ -1639,6 +1639,48 @@ def delete_bookmark(bookmark_id):
     return jsonify({'success': True})
 
 
+def parse_note_frontmatter(content):
+    """解析笔记的 YAML frontmatter"""
+    meta = {
+        'title': '未命名',
+        'category': '未分类',
+        'created': '',
+        'tags': []
+    }
+    body = content
+    
+    if content.startswith('---'):
+        parts = content.split('---', 2)
+        if len(parts) >= 3:
+            yaml_content = parts[1].strip()
+            body = parts[2].strip()
+            
+            for line in yaml_content.split('\n'):
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    key = key.strip().lower()
+                    value = value.strip()
+                    if key == 'title':
+                        meta['title'] = value
+                    elif key == 'category':
+                        meta['category'] = value
+                    elif key == 'created':
+                        meta['created'] = value
+                    elif key == 'tags':
+                        # 解析 tags: [tag1, tag2] 或 tags: tag1, tag2
+                        value = value.strip('[]')
+                        meta['tags'] = [t.strip() for t in value.split(',') if t.strip()]
+    
+    # 如果没有 frontmatter，从内容提取标题
+    if meta['title'] == '未命名':
+        for line in body.split('\n'):
+            if line.startswith('# '):
+                meta['title'] = line[2:].strip()
+                break
+    
+    return meta, body
+
+
 # ==================== 工作笔记 API ====================
 
 @app.route('/api/notes', methods=['GET'])
@@ -1647,21 +1689,22 @@ def get_notes_list():
     notes = []
     for file in NOTES_DIR.glob('*.md'):
         content = file.read_text(encoding='utf-8')
-        # 提取标题（第一行 # 开头的内容）
-        lines = content.split('\n')
-        title = file.stem  # 默认使用文件名
-        for line in lines:
-            if line.startswith('# '):
-                title = line[2:].strip()
-                break
+        meta, body = parse_note_frontmatter(content)
+        
+        # 提取摘要（前100个字符）
+        summary_lines = [l for l in body.split('\n') if l.strip() and not l.startswith('#')]
+        summary = ' '.join(summary_lines)[:100] + '...' if len(' '.join(summary_lines)) > 100 else ' '.join(summary_lines)
         
         # 获取文件信息
         stat = file.stat()
         notes.append({
             'id': file.stem,
-            'title': title,
+            'title': meta['title'],
+            'category': meta['category'],
+            'tags': meta['tags'],
+            'summary': summary,
             'filename': file.name,
-            'created_time': datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M'),
+            'created_time': meta['created'] or datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M'),
             'modified_time': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M'),
             'size': stat.st_size
         })
@@ -1685,18 +1728,17 @@ def get_note(note_id):
     content = note_file.read_text(encoding='utf-8')
     stat = note_file.stat()
     
-    # 提取标题
-    lines = content.split('\n')
-    title = note_id
-    for line in lines:
-        if line.startswith('# '):
-            title = line[2:].strip()
-            break
+    # 解析 frontmatter
+    meta, body = parse_note_frontmatter(content)
     
     return jsonify({
         'id': note_id,
-        'title': title,
-        'content': content,
+        'title': meta['title'],
+        'category': meta['category'],
+        'tags': meta['tags'],
+        'content': content,  # 返回完整内容（含frontmatter）
+        'body': body,  # 返回纯内容（不含frontmatter）
+        'created_time': meta['created'] or datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M'),
         'modified_time': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
     })
 
@@ -1706,22 +1748,37 @@ def create_note():
     """创建新笔记"""
     data = request.json
     title = data.get('title', '未命名笔记')
-    content = data.get('content', f'# {title}\n\n')
+    category = data.get('category', '未分类')
+    content = data.get('content', '')
     
     # 生成唯一 ID
     import uuid
     note_id = str(uuid.uuid4())[:8]
     
+    # 构建笔记内容，包含 YAML frontmatter
+    frontmatter = f"""---
+title: {title}
+category: {category}
+created: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+---
+
+"""
     # 如果内容没有标题，添加标题
-    if not content.strip().startswith('# '):
+    if content and not content.strip().startswith('# '):
         content = f'# {title}\n\n{content}'
+    elif not content:
+        content = f'# {title}\n\n在这里开始编写...'
+    
+    full_content = frontmatter + content
     
     note_file = NOTES_DIR / f'{note_id}.md'
-    note_file.write_text(content, encoding='utf-8')
+    note_file.write_text(full_content, encoding='utf-8')
     
     return jsonify({
         'id': note_id,
         'title': title,
+        'category': category,
+        'content': full_content,
         'message': '笔记创建成功'
     })
 
