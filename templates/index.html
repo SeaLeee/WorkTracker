@@ -162,6 +162,7 @@
                     <div class="nav-tab" :class="{active: currentView === 'calendar'}" @click="currentView = 'calendar'">📅 日历</div>
                     <div class="nav-tab" :class="{active: currentView === 'all'}" @click="currentView = 'all'">全部需求</div>
                     <div class="nav-tab" :class="{active: currentView === 'bookmarks'}" @click="currentView = 'bookmarks'">🔖 书签</div>
+                    <div class="nav-tab" :class="{active: currentView === 'notes'}" @click="currentView = 'notes'; loadNotesList()">📝 笔记</div>
                     <div class="nav-tab" :class="{active: currentView === 'markdown'}" @click="currentView = 'markdown'">Markdown</div>
                     <div class="nav-tab" :class="{active: currentView === 'monthly'}" @click="currentView = 'monthly'">月报</div>
                     <div class="nav-tab" :class="{active: currentView === 'stats'}" @click="currentView = 'stats'">统计</div>
@@ -186,6 +187,74 @@
                     <h3 style="font-size: 0.9rem; color: #666; margin-bottom: 12px;">📌 全局注意事项</h3>
                     <div v-for="note in globalNotes" :key="note.id" class="global-note" :class="note.type">
                         <span>{{ note.content }}</span>
+                    </div>
+                </div>
+
+                <!-- 处理中任务（根据日期范围自动显示）- 排在长期需求前面 -->
+                <div class="card" style="padding: 16px; margin-bottom: 20px;">
+                    <h3 style="font-size: 0.9rem; color: #666; margin-bottom: 12px;">⏳ 当前处理中的需求 ({{ periodTasks.length }})</h3>
+                    <div v-if="periodTasks.length === 0" style="text-align: center; padding: 40px; color: #555;">
+                        当日没有处理中的需求
+                    </div>
+                    <div v-for="task in periodTasks" :key="task.id" class="task-item" :class="[task.priority, {'timer-active': activeTimer && activeTimer.taskId === task.id}]">
+                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                            <div class="checkbox" :class="{checked: task.completed}" @click="toggleTaskCompletion(task)"></div>
+                            <div style="flex: 1;">
+                                <div :class="{'completed-task': task.completed}">
+                                    <span class="badge" :class="'priority-' + task.priority" style="margin-right: 8px;">{{ task.priority === 'high' ? '高' : task.priority === 'medium' ? '中' : '低' }}</span>
+                                    <strong>{{ task.title }}</strong>
+                                    <span style="color: #666; margin-left: 8px;">[{{ task.category }}]</span>
+                                </div>
+                                <div style="font-size: 0.85rem; color: #555; margin-top: 4px;">
+                                    处理期间: {{ task.work_period || '待定' }} | 预计完成: {{ task.expected_date }}
+                                </div>
+                                <!-- 预计时长和工作时长显示 -->
+                                <div style="display: flex; align-items: center; gap: 12px; margin-top: 6px; flex-wrap: wrap;">
+                                    <span style="font-size: 0.8rem; color: #f59e0b;">⏱️ 预计: {{ task.estimated_hours || 1 }}h</span>
+                                    <span v-if="task.actual_hours" style="font-size: 0.8rem; color: #3b82f6;">📊 已用: {{ task.actual_hours.toFixed(1) }}h</span>
+                                    <!-- 计时器显示 -->
+                                    <div v-if="activeTimer && activeTimer.taskId === task.id" class="timer-display" :style="timerPaused ? 'border-color: #f59e0b' : ''">
+                                        <span v-if="timerPaused" style="color: #f59e0b;">⏸ 已暂停 | </span>
+                                        <span :class="{'timer-warning': timerRemaining <= 300 && !timerPaused, 'timer-overtime': timerRemaining < 0}">
+                                            {{ timerRemaining >= 0 ? '剩余' : '超时' }}: {{ formatTimerDisplay(Math.abs(timerRemaining)) }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <!-- 进度条和备注 -->
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+                                    <div class="progress-bar-mini">
+                                        <div v-for="i in 5" :key="i" 
+                                            class="progress-node-mini" 
+                                            :class="{'filled': i <= (task.progress || 0)}"
+                                            :style="{background: i <= (task.progress || 0) ? (task.progress === 1 ? '#ef4444' : task.progress === 2 ? '#f97316' : task.progress === 3 ? '#f59e0b' : task.progress === 4 ? '#84cc16' : '#22c55e') : 'transparent'}"
+                                            @click.stop="updateProgress(task, task.progress === i ? i - 1 : i)">
+                                        </div>
+                                    </div>
+                                    <span style="font-size: 0.75rem; color: #888;">{{ task.progress || 0 }}/5</span>
+                                    <span v-if="task.notes" style="font-size: 0.75rem; color: #666; margin-left: 8px;" :title="task.notes">📝 {{ task.notes.substring(0, 20) }}{{ task.notes.length > 20 ? '...' : '' }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <!-- 计时器按钮 -->
+                            <button v-if="!activeTimer || activeTimer.taskId !== task.id" 
+                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #059669; color: white;" 
+                                @click="startTimer(task)">▶ 开始</button>
+                            <!-- 暂停按钮（计时中且未暂停时显示） -->
+                            <button v-if="activeTimer && activeTimer.taskId === task.id && !timerPaused" 
+                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #f59e0b; color: white;" 
+                                @click="pauseTimer()">⏸ 暂停</button>
+                            <!-- 继续按钮（计时中且已暂停时显示） -->
+                            <button v-if="activeTimer && activeTimer.taskId === task.id && timerPaused" 
+                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #059669; color: white;" 
+                                @click="resumeTimer()">▶ 继续</button>
+                            <!-- 停止按钮（计时中时显示） -->
+                            <button v-if="activeTimer && activeTimer.taskId === task.id" 
+                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #dc2626; color: white;" 
+                                @click="stopTimer(task)">⏹ 结束</button>
+                            <button class="btn btn-dark" style="padding: 6px 12px; font-size: 0.85rem;" @click="editRequirement(task)">编辑</button>
+                            <button class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #2a2a2a; color: #888;" @click="deleteRequirement(task.id)">删除</button>
+                        </div>
                     </div>
                 </div>
 
@@ -288,74 +357,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- 处理中任务（根据日期范围自动显示） -->
-                <div class="card" style="padding: 16px;">
-                    <h3 style="font-size: 0.9rem; color: #666; margin-bottom: 12px;">⏳ 当前处理中的需求 ({{ periodTasks.length }})</h3>
-                    <div v-if="periodTasks.length === 0" style="text-align: center; padding: 40px; color: #555;">
-                        当日没有处理中的需求
-                    </div>
-                    <div v-for="task in periodTasks" :key="task.id" class="task-item" :class="[task.priority, {'timer-active': activeTimer && activeTimer.taskId === task.id}]">
-                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                            <div class="checkbox" :class="{checked: task.completed}" @click="toggleTaskCompletion(task)"></div>
-                            <div style="flex: 1;">
-                                <div :class="{'completed-task': task.completed}">
-                                    <span class="badge" :class="'priority-' + task.priority" style="margin-right: 8px;">{{ task.priority === 'high' ? '高' : task.priority === 'medium' ? '中' : '低' }}</span>
-                                    <strong>{{ task.title }}</strong>
-                                    <span style="color: #666; margin-left: 8px;">[{{ task.category }}]</span>
-                                </div>
-                                <div style="font-size: 0.85rem; color: #555; margin-top: 4px;">
-                                    处理期间: {{ task.work_period || '待定' }} | 预计完成: {{ task.expected_date }}
-                                </div>
-                                <!-- 预计时长和工作时长显示 -->
-                                <div style="display: flex; align-items: center; gap: 12px; margin-top: 6px; flex-wrap: wrap;">
-                                    <span style="font-size: 0.8rem; color: #f59e0b;">⏱️ 预计: {{ task.estimated_hours || 1 }}h</span>
-                                    <span v-if="task.actual_hours" style="font-size: 0.8rem; color: #3b82f6;">📊 已用: {{ task.actual_hours.toFixed(1) }}h</span>
-                                    <!-- 计时器显示 -->
-                                    <div v-if="activeTimer && activeTimer.taskId === task.id" class="timer-display" :style="timerPaused ? 'border-color: #f59e0b' : ''">
-                                        <span v-if="timerPaused" style="color: #f59e0b;">⏸ 已暂停 | </span>
-                                        <span :class="{'timer-warning': timerRemaining <= 300 && !timerPaused, 'timer-overtime': timerRemaining < 0}">
-                                            {{ timerRemaining >= 0 ? '剩余' : '超时' }}: {{ formatTimerDisplay(Math.abs(timerRemaining)) }}
-                                        </span>
-                                    </div>
-                                </div>
-                                <!-- 进度条和备注 -->
-                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
-                                    <div class="progress-bar-mini">
-                                        <div v-for="i in 5" :key="i" 
-                                            class="progress-node-mini" 
-                                            :class="{'filled': i <= (task.progress || 0)}"
-                                            :style="{background: i <= (task.progress || 0) ? (task.progress === 1 ? '#ef4444' : task.progress === 2 ? '#f97316' : task.progress === 3 ? '#f59e0b' : task.progress === 4 ? '#84cc16' : '#22c55e') : 'transparent'}"
-                                            @click.stop="updateProgress(task, task.progress === i ? i - 1 : i)">
-                                        </div>
-                                    </div>
-                                    <span style="font-size: 0.75rem; color: #888;">{{ task.progress || 0 }}/5</span>
-                                    <span v-if="task.notes" style="font-size: 0.75rem; color: #666; margin-left: 8px;" :title="task.notes">📝 {{ task.notes.substring(0, 20) }}{{ task.notes.length > 20 ? '...' : '' }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                            <!-- 计时器按钮 -->
-                            <button v-if="!activeTimer || activeTimer.taskId !== task.id" 
-                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #059669; color: white;" 
-                                @click="startTimer(task)">▶ 开始</button>
-                            <!-- 暂停按钮（计时中且未暂停时显示） -->
-                            <button v-if="activeTimer && activeTimer.taskId === task.id && !timerPaused" 
-                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #f59e0b; color: white;" 
-                                @click="pauseTimer()">⏸ 暂停</button>
-                            <!-- 继续按钮（计时中且已暂停时显示） -->
-                            <button v-if="activeTimer && activeTimer.taskId === task.id && timerPaused" 
-                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #059669; color: white;" 
-                                @click="resumeTimer()">▶ 继续</button>
-                            <!-- 停止按钮（计时中时显示） -->
-                            <button v-if="activeTimer && activeTimer.taskId === task.id" 
-                                class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #dc2626; color: white;" 
-                                @click="stopTimer(task)">⏹ 结束</button>
-                            <button class="btn btn-dark" style="padding: 6px 12px; font-size: 0.85rem;" @click="editRequirement(task)">编辑</button>
-                            <button class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #2a2a2a; color: #888;" @click="deleteRequirement(task.id)">删除</button>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- 全部需求视图 -->
@@ -404,6 +405,95 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- 工作笔记视图 -->
+            <div v-if="currentView === 'notes'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600;">📝 工作笔记</h2>
+                    <button class="btn btn-white" @click="createNewNote()">+ 新建笔记</button>
+                </div>
+                
+                <!-- 笔记编辑器 -->
+                <div v-if="currentNote" style="display: flex; gap: 20px; height: calc(100vh - 200px);">
+                    <!-- 左侧笔记列表 -->
+                    <div style="width: 250px; flex-shrink: 0; background: #1a1a1a; border-radius: 12px; overflow: hidden;">
+                        <div style="padding: 12px; border-bottom: 1px solid #333; font-weight: 600; color: #888;">
+                            笔记列表 ({{ notesList.length }})
+                        </div>
+                        <div style="max-height: calc(100vh - 280px); overflow-y: auto;">
+                            <div v-for="note in notesList" :key="note.id" 
+                                @click="loadNote(note.id)"
+                                :style="{
+                                    padding: '12px 16px',
+                                    cursor: 'pointer',
+                                    borderLeft: currentNote.id === note.id ? '3px solid #3b82f6' : '3px solid transparent',
+                                    background: currentNote.id === note.id ? '#252525' : 'transparent'
+                                }"
+                                @mouseenter="$event.target.style.background = '#252525'"
+                                @mouseleave="$event.target.style.background = currentNote.id === note.id ? '#252525' : 'transparent'">
+                                <div style="font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    {{ note.title }}
+                                </div>
+                                <div style="font-size: 0.75rem; color: #666;">{{ note.modified_time }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧编辑器区域 -->
+                    <div style="flex: 1; display: flex; flex-direction: column; background: #1a1a1a; border-radius: 12px; overflow: hidden;">
+                        <!-- 工具栏 -->
+                        <div style="padding: 12px 16px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <span style="font-weight: 600;">{{ currentNote.title || '未命名' }}</span>
+                                <span style="font-size: 0.8rem; color: #666;">{{ currentNote.modified_time }}</span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn" :class="noteViewMode === 'edit' ? 'btn-white' : 'btn-dark'" 
+                                    @click="noteViewMode = 'edit'" style="padding: 6px 12px; font-size: 0.85rem;">编辑</button>
+                                <button class="btn" :class="noteViewMode === 'preview' ? 'btn-white' : 'btn-dark'" 
+                                    @click="noteViewMode = 'preview'" style="padding: 6px 12px; font-size: 0.85rem;">预览</button>
+                                <button class="btn" :class="noteViewMode === 'split' ? 'btn-white' : 'btn-dark'" 
+                                    @click="noteViewMode = 'split'" style="padding: 6px 12px; font-size: 0.85rem;">分屏</button>
+                                <button class="btn btn-dark" @click="saveCurrentNote()" style="padding: 6px 12px; font-size: 0.85rem; margin-left: 8px;">💾 保存</button>
+                                <button class="btn" style="padding: 6px 12px; font-size: 0.85rem; background: #dc2626; color: white;" @click="deleteCurrentNote()">🗑️ 删除</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 编辑/预览区域 -->
+                        <div style="flex: 1; display: flex; overflow: hidden;">
+                            <!-- 编辑器 -->
+                            <div v-if="noteViewMode === 'edit' || noteViewMode === 'split'" 
+                                :style="{flex: noteViewMode === 'split' ? '1' : '1', borderRight: noteViewMode === 'split' ? '1px solid #333' : 'none'}">
+                                <textarea v-model="currentNote.content" 
+                                    @input="noteUnsaved = true"
+                                    style="width: 100%; height: 100%; background: #0d0d0d; color: #e0e0e0; border: none; padding: 16px; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; line-height: 1.6; resize: none; outline: none;"
+                                    placeholder="开始编写 Markdown 笔记..."></textarea>
+                            </div>
+                            <!-- 预览 -->
+                            <div v-if="noteViewMode === 'preview' || noteViewMode === 'split'" 
+                                :style="{flex: '1', padding: '16px', overflow: 'auto', background: '#0d0d0d'}"
+                                class="markdown-preview"
+                                v-html="renderMarkdown(currentNote.content)">
+                            </div>
+                        </div>
+                        
+                        <!-- 状态栏 -->
+                        <div style="padding: 8px 16px; border-top: 1px solid #333; font-size: 0.75rem; color: #666; display: flex; justify-content: space-between;">
+                            <span>字符: {{ currentNote.content ? currentNote.content.length : 0 }}</span>
+                            <span v-if="noteUnsaved" style="color: #f59e0b;">● 未保存</span>
+                            <span v-else style="color: #22c55e;">✓ 已保存</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 空状态 -->
+                <div v-else class="card" style="padding: 60px; text-align: center;">
+                    <div style="font-size: 4rem; margin-bottom: 16px;">📝</div>
+                    <h3 style="margin-bottom: 8px;">开始记录工作笔记</h3>
+                    <p style="color: #666; margin-bottom: 24px;">使用 Markdown 格式记录你的工作心得、技术笔记等</p>
+                    <button class="btn btn-white" @click="createNewNote()">创建第一篇笔记</button>
                 </div>
             </div>
 
@@ -1048,6 +1138,12 @@
             const mdViewDate = ref(new Date().toISOString().split('T')[0]);
             const markdownSource = ref('');
             
+            // 工作笔记相关
+            const notesList = ref([]);
+            const currentNote = ref(null);
+            const noteViewMode = ref('split'); // edit, preview, split
+            const noteUnsaved = ref(false);
+            
             // 月报相关
             const currentYear = new Date().getFullYear();
             const selectedYear = ref(currentYear);
@@ -1079,6 +1175,15 @@
                     const kw = searchKeyword.value.toLowerCase();
                     filtered = filtered.filter(r => r.title.toLowerCase().includes(kw) || r.category.toLowerCase().includes(kw));
                 }
+                
+                // 按优先级排序：high > medium > low
+                const priorityOrder = { 'high': 0, 'medium': 1, 'low': 2 };
+                filtered = [...filtered].sort((a, b) => {
+                    const pa = priorityOrder[a.priority] ?? 99;
+                    const pb = priorityOrder[b.priority] ?? 99;
+                    return pa - pb;
+                });
+                
                 const groups = {};
                 filtered.forEach(r => {
                     const cat = r.category || '未分类';
@@ -1691,6 +1796,125 @@
                 }
             }
             
+            // ==================== 工作笔记相关方法 ====================
+            async function loadNotesList() {
+                try {
+                    const res = await axios.get('/api/notes');
+                    notesList.value = res.data;
+                } catch (e) {
+                    console.error('加载笔记列表失败', e);
+                }
+            }
+            
+            async function loadNote(noteId) {
+                // 检查是否有未保存的更改
+                if (noteUnsaved.value && currentNote.value) {
+                    if (!confirm('当前笔记有未保存的更改，是否放弃？')) {
+                        return;
+                    }
+                }
+                try {
+                    const res = await axios.get(`/api/notes/${noteId}`);
+                    currentNote.value = res.data;
+                    noteUnsaved.value = false;
+                } catch (e) {
+                    alert('加载笔记失败');
+                }
+            }
+            
+            async function createNewNote() {
+                // 检查是否有未保存的更改
+                if (noteUnsaved.value && currentNote.value) {
+                    if (!confirm('当前笔记有未保存的更改，是否放弃？')) {
+                        return;
+                    }
+                }
+                try {
+                    const res = await axios.post('/api/notes', {
+                        title: '新建笔记',
+                        content: '# 新建笔记\n\n在这里开始编写...'
+                    });
+                    await loadNotesList();
+                    currentNote.value = res.data;
+                    noteUnsaved.value = false;
+                } catch (e) {
+                    alert('创建笔记失败');
+                }
+            }
+            
+            async function saveCurrentNote() {
+                if (!currentNote.value) return;
+                try {
+                    // 从内容中提取标题（第一个 # 开头的行）
+                    const lines = currentNote.value.content.split('\n');
+                    let title = '未命名';
+                    for (const line of lines) {
+                        if (line.startsWith('# ')) {
+                            title = line.substring(2).trim();
+                            break;
+                        }
+                    }
+                    
+                    await axios.put(`/api/notes/${currentNote.value.id}`, {
+                        title: title,
+                        content: currentNote.value.content
+                    });
+                    noteUnsaved.value = false;
+                    await loadNotesList();
+                    // 更新当前笔记的标题
+                    currentNote.value.title = title;
+                } catch (e) {
+                    alert('保存笔记失败：' + (e.response?.data?.error || e.message));
+                }
+            }
+            
+            async function deleteCurrentNote() {
+                if (!currentNote.value) return;
+                if (!confirm(`确定要删除笔记"${currentNote.value.title}"吗？此操作不可恢复。`)) {
+                    return;
+                }
+                try {
+                    await axios.delete(`/api/notes/${currentNote.value.id}`);
+                    currentNote.value = null;
+                    noteUnsaved.value = false;
+                    await loadNotesList();
+                } catch (e) {
+                    alert('删除笔记失败');
+                }
+            }
+            
+            // 简单的 Markdown 渲染函数
+            function renderMarkdown(content) {
+                if (!content) return '';
+                let html = content
+                    // 转义 HTML
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    // 代码块
+                    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
+                    // 行内代码
+                    .replace(/`([^`]+)`/g, '<code style="background:#333;padding:2px 6px;border-radius:3px;">$1</code>')
+                    // 标题
+                    .replace(/^### (.+)$/gm, '<h3 style="margin:16px 0 8px;color:#fff;">$1</h3>')
+                    .replace(/^## (.+)$/gm, '<h2 style="margin:20px 0 10px;color:#fff;">$1</h2>')
+                    .replace(/^# (.+)$/gm, '<h1 style="margin:24px 0 12px;color:#fff;font-size:1.8rem;">$1</h1>')
+                    // 粗体和斜体
+                    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                    // 链接
+                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#3b82f6;">$1</a>')
+                    // 无序列表
+                    .replace(/^[\-\*] (.+)$/gm, '<li style="margin-left:20px;">$1</li>')
+                    // 有序列表
+                    .replace(/^\d+\. (.+)$/gm, '<li style="margin-left:20px;">$1</li>')
+                    // 水平线
+                    .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #333;margin:16px 0;">')
+                    // 换行
+                    .replace(/\n/g, '<br>');
+                return html;
+            }
+            
             let chartInstance = null;
             function renderChart() {
                 nextTick(() => {
@@ -1737,6 +1961,7 @@
             watch(currentView, (v) => { 
                 if (v === 'stats') renderChart(); 
                 if (v === 'markdown') loadMarkdownPreview();
+                if (v === 'notes') loadNotesList();
             });
             watch(requirements, () => { if (currentView.value === 'stats') renderChart(); }, { deep: true });
             watch(mdViewType, () => { loadMarkdownPreview(); });
@@ -1963,7 +2188,10 @@
                 openAddModal, editRequirement, saveRequirement, deleteRequirement, toggleTaskCompletion,
                 addTodayTask, toggleTodayTask, deleteTodayTask, addGlobalNote, deleteGlobalNote,
                 toggleCategory, getStatusText, loadMarkdownPreview, copyMarkdown, downloadMarkdown,
-                generateMonthlyReport, saveMarkdownToDisk
+                generateMonthlyReport, saveMarkdownToDisk,
+                // 笔记相关
+                notesList, currentNote, noteViewMode, noteUnsaved,
+                loadNotesList, loadNote, createNewNote, saveCurrentNote, deleteCurrentNote, renderMarkdown
             };
         }
     }).mount('#app');

@@ -22,9 +22,11 @@ DAILY_DIR = DATA_DIR / 'daily'
 MONTHLY_DIR = DATA_DIR / 'monthly'
 GLOBAL_NOTES_FILE = DATA_DIR / 'global_notes.md'
 BOOKMARKS_FILE = DATA_DIR / 'bookmarks.md'
+NOTES_DIR = DATA_DIR / 'notes'  # 工作笔记目录
 
 DAILY_DIR.mkdir(exist_ok=True)
 MONTHLY_DIR.mkdir(exist_ok=True)
+NOTES_DIR.mkdir(exist_ok=True)
 
 # 优先级和状态定义
 PRIORITIES = ['高', '中', '低']
@@ -63,15 +65,16 @@ def parse_requirements():
     
     # 最新格式 v5（包含进度、备注、类型、预计时长、实际时长）:
     # - [x] **高** | [分类] 描述 | 创建:2026-02-25 | 处理:2026-02-20~2026-02-28 | 预计:2026-02-28 | 完成:未完成 | 进度:3 | 备注:xxx | 类型:normal | 预计:2 | 实际:1.5 | ID:abc123
-    pattern_v5 = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 处理:(\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}|待定) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| 进度:(\d) \| 备注:(.+?) \| 类型:(\w+) \| 预计:([\d.]+) \| 实际:([\d.]+) \| ID:(\w+)'
+    # 备注部分使用 [\s\S]+? 来匹配包含换行符的内容
+    pattern_v5 = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 处理:(\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}|待定) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| 进度:(\d) \| 备注:([\s\S]+?) \| 类型:(\w+) \| 预计:([\d.]+) \| 实际:([\d.]+) \| ID:(\w+)'
     
     # v4 格式（包含进度、备注、类型、预计时长，但没有实际时长）:
     # - [x] **高** | [分类] 描述 | 创建:2026-02-25 | 处理:2026-02-20~2026-02-28 | 预计:2026-02-28 | 完成:未完成 | 进度:3 | 备注:xxx | 类型:normal | 时长:2 | ID:abc123
-    pattern_v4 = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 处理:(\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}|待定) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| 进度:(\d) \| 备注:(.+?) \| 类型:(\w+) \| 时长:([\d.]+) \| ID:(\w+)'
+    pattern_v4 = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 处理:(\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}|待定) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| 进度:(\d) \| 备注:([\s\S]+?) \| 类型:(\w+) \| 时长:([\d.]+) \| ID:(\w+)'
     
     # v3 格式（包含进度、备注、类型，但没有时长）:
     # - [x] **高** | [分类] 描述 | 创建:2026-02-25 | 处理:2026-02-20~2026-02-28 | 预计:2026-02-28 | 完成:未完成 | 进度:3 | 备注:xxx | 类型:normal | ID:abc123
-    pattern_v3 = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 处理:(\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}|待定) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| 进度:(\d) \| 备注:(.+?) \| 类型:(\w+) \| ID:(\w+)'
+    pattern_v3 = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 处理:(\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}|待定) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| 进度:(\d) \| 备注:([\s\S]+?) \| 类型:(\w+) \| ID:(\w+)'
     
     # 旧格式（没有进度、备注、类型）
     pattern_v2 = r'- \[([ x])\] \*\*(\S+)\*\* \| \[(.+?)\] (.+?) \| 创建:(\d{4}-\d{2}-\d{2}) \| 处理:(\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}|待定) \| 预计:(\d{4}-\d{2}-\d{2}|待定) \| 完成:(\d{4}-\d{2}-\d{2}|未完成|已取消) \| ID:(\w+)'
@@ -92,7 +95,9 @@ def parse_requirements():
         due_date = match.group(7)
         completed_date = match.group(8)
         progress = int(match.group(9))
-        notes = match.group(10) if match.group(10) != '-' else ''
+        # 将 <br> 转回换行符
+        notes_raw = match.group(10)
+        notes = notes_raw.replace('<br>', '\n') if notes_raw != '-' else ''
         req_type = match.group(11)
         estimated_hours = float(match.group(12))
         actual_hours = float(match.group(13))
@@ -151,7 +156,9 @@ def parse_requirements():
         due_date = match.group(7)
         completed_date = match.group(8)
         progress = int(match.group(9))
-        notes = match.group(10) if match.group(10) != '-' else ''
+        # 将 <br> 转回换行符
+        notes_raw = match.group(10)
+        notes = notes_raw.replace('<br>', '\n') if notes_raw != '-' else ''
         req_type = match.group(11)
         estimated_hours = float(match.group(12))
         req_id = match.group(13)
@@ -209,7 +216,9 @@ def parse_requirements():
         due_date = match.group(7)
         completed_date = match.group(8)
         progress = int(match.group(9))
-        notes = match.group(10) if match.group(10) != '-' else ''
+        # 将 <br> 转回换行符
+        notes_raw = match.group(10)
+        notes = notes_raw.replace('<br>', '\n') if notes_raw != '-' else ''
         req_type = match.group(11)
         req_id = match.group(12)
         
@@ -368,7 +377,8 @@ def save_requirements(requirements):
         
         # 字段
         progress = req.get('progress', 0)
-        notes = req.get('notes', '') or '-'
+        # 备注中的换行符替换为 <br> 以避免破坏 Markdown 格式
+        notes = (req.get('notes', '') or '-').replace('\n', '<br>').replace('\r', '')
         req_type = req.get('req_type', 'normal')
         estimated_hours = req.get('estimated_hours', 1)  # 默认1小时
         actual_hours = req.get('actual_hours', 0)  # 实际工作时长
@@ -376,7 +386,17 @@ def save_requirements(requirements):
         line = f"- [{checkbox}] **{req['priority']}** | [{category}] {req['description']} | 创建:{req['created_date']} | 处理:{work_period} | 预计:{req['due_date']} | 完成:{req['completed_date']} | 进度:{progress} | 备注:{notes} | 类型:{req_type} | 预计:{estimated_hours} | 实际:{actual_hours} | ID:{req['id']}\n"
         content += line
     
-    REQUIREMENTS_FILE.write_text(content, encoding='utf-8')
+    try:
+        REQUIREMENTS_FILE.write_text(content, encoding='utf-8')
+        
+        # 验证保存是否成功 - 重新读取并检查数量
+        saved_reqs = parse_requirements()
+        if len(saved_reqs) != len(requirements):
+            raise Exception(f"保存验证失败：期望 {len(requirements)} 条，实际 {len(saved_reqs)} 条")
+        
+        return True, None
+    except Exception as e:
+        return False, str(e)
 
 
 def parse_global_notes():
@@ -767,7 +787,10 @@ def add_requirement():
     }
     
     requirements.append(new_req)
-    save_requirements(requirements)
+    success, error = save_requirements(requirements)
+    
+    if not success:
+        return jsonify({'error': f'保存失败: {error}'}), 500
     
     return jsonify(new_req)
 
@@ -844,7 +867,9 @@ def update_requirement(req_id):
             
             break
     
-    save_requirements(requirements)
+    success, error = save_requirements(requirements)
+    if not success:
+        return jsonify({'error': f'保存失败: {error}'}), 500
     return jsonify({'success': True})
 
 
@@ -852,8 +877,15 @@ def update_requirement(req_id):
 def delete_requirement(req_id):
     """删除需求"""
     requirements = parse_requirements()
+    original_count = len(requirements)
     requirements = [r for r in requirements if r['id'] != req_id]
-    save_requirements(requirements)
+    
+    if len(requirements) == original_count:
+        return jsonify({'error': '需求不存在'}), 404
+    
+    success, error = save_requirements(requirements)
+    if not success:
+        return jsonify({'error': f'删除失败: {error}'}), 500
     return jsonify({'success': True})
 
 
@@ -1605,6 +1637,132 @@ def delete_bookmark(bookmark_id):
     bookmarks = [bm for bm in bookmarks if bm['id'] != bookmark_id]
     save_bookmarks(bookmarks)
     return jsonify({'success': True})
+
+
+# ==================== 工作笔记 API ====================
+
+@app.route('/api/notes', methods=['GET'])
+def get_notes_list():
+    """获取所有笔记列表"""
+    notes = []
+    for file in NOTES_DIR.glob('*.md'):
+        content = file.read_text(encoding='utf-8')
+        # 提取标题（第一行 # 开头的内容）
+        lines = content.split('\n')
+        title = file.stem  # 默认使用文件名
+        for line in lines:
+            if line.startswith('# '):
+                title = line[2:].strip()
+                break
+        
+        # 获取文件信息
+        stat = file.stat()
+        notes.append({
+            'id': file.stem,
+            'title': title,
+            'filename': file.name,
+            'created_time': datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M'),
+            'modified_time': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M'),
+            'size': stat.st_size
+        })
+    
+    # 按修改时间倒序排列
+    notes.sort(key=lambda x: x['modified_time'], reverse=True)
+    return jsonify(notes)
+
+
+@app.route('/api/notes/<note_id>', methods=['GET'])
+def get_note(note_id):
+    """获取单个笔记内容"""
+    # 安全检查：防止路径遍历
+    if '..' in note_id or '/' in note_id or '\\' in note_id:
+        return jsonify({'error': '无效的笔记ID'}), 400
+    
+    note_file = NOTES_DIR / f'{note_id}.md'
+    if not note_file.exists():
+        return jsonify({'error': '笔记不存在'}), 404
+    
+    content = note_file.read_text(encoding='utf-8')
+    stat = note_file.stat()
+    
+    # 提取标题
+    lines = content.split('\n')
+    title = note_id
+    for line in lines:
+        if line.startswith('# '):
+            title = line[2:].strip()
+            break
+    
+    return jsonify({
+        'id': note_id,
+        'title': title,
+        'content': content,
+        'modified_time': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
+    })
+
+
+@app.route('/api/notes', methods=['POST'])
+def create_note():
+    """创建新笔记"""
+    data = request.json
+    title = data.get('title', '未命名笔记')
+    content = data.get('content', f'# {title}\n\n')
+    
+    # 生成唯一 ID
+    import uuid
+    note_id = str(uuid.uuid4())[:8]
+    
+    # 如果内容没有标题，添加标题
+    if not content.strip().startswith('# '):
+        content = f'# {title}\n\n{content}'
+    
+    note_file = NOTES_DIR / f'{note_id}.md'
+    note_file.write_text(content, encoding='utf-8')
+    
+    return jsonify({
+        'id': note_id,
+        'title': title,
+        'message': '笔记创建成功'
+    })
+
+
+@app.route('/api/notes/<note_id>', methods=['PUT'])
+def update_note(note_id):
+    """更新笔记"""
+    # 安全检查
+    if '..' in note_id or '/' in note_id or '\\' in note_id:
+        return jsonify({'error': '无效的笔记ID'}), 400
+    
+    note_file = NOTES_DIR / f'{note_id}.md'
+    if not note_file.exists():
+        return jsonify({'error': '笔记不存在'}), 404
+    
+    data = request.json
+    content = data.get('content', '')
+    
+    try:
+        note_file.write_text(content, encoding='utf-8')
+        return jsonify({'success': True, 'message': '保存成功'})
+    except Exception as e:
+        return jsonify({'error': f'保存失败: {str(e)}'}), 500
+
+
+@app.route('/api/notes/<note_id>', methods=['DELETE'])
+def delete_note(note_id):
+    """删除笔记"""
+    # 安全检查
+    if '..' in note_id or '/' in note_id or '\\' in note_id:
+        return jsonify({'error': '无效的笔记ID'}), 400
+    
+    note_file = NOTES_DIR / f'{note_id}.md'
+    if not note_file.exists():
+        return jsonify({'error': '笔记不存在'}), 404
+    
+    try:
+        note_file.unlink()
+        return jsonify({'success': True, 'message': '删除成功'})
+    except Exception as e:
+        return jsonify({'error': f'删除失败: {str(e)}'}), 500
 
 
 if __name__ == '__main__':
