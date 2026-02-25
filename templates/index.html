@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作需求记录管理系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background: #161616;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+        }
+        .priority-high { background: #fff; color: #000; font-weight: 700; }
+        .priority-medium { background: #555; color: #fff; }
+        .priority-low { background: #333; color: #888; }
+        .status-pending { background: #333; color: #888; }
+        .status-progress { background: #555; color: #fff; }
+        .status-completed { background: #fff; color: #000; }
+        .status-cancelled { background: #222; color: #555; text-decoration: line-through; }
+        .nav-tab { padding: 10px 20px; border-radius: 8px; cursor: pointer; transition: all 0.2s; color: #888; }
+        .nav-tab:hover { background: #222; color: #fff; }
+        .nav-tab.active { background: #fff; color: #000; }
+        .btn { padding: 10px 20px; border-radius: 8px; cursor: pointer; border: none; font-weight: 500; transition: all 0.2s; }
+        .btn-white { background: #fff; color: #000; }
+        .btn-white:hover { background: #e0e0e0; }
+        .btn-dark { background: #333; color: #fff; }
+        .btn-dark:hover { background: #444; }
+        .input-field { background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 10px 14px; border-radius: 8px; width: 100%; }
+        .input-field:focus { outline: none; border-color: #555; }
+        .stat-card { background: #161616; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px; text-align: center; }
+        .stat-card .number { font-size: 2.5rem; font-weight: 700; color: #fff; }
+        .stat-card .label { color: #666; font-size: 0.9rem; margin-top: 4px; }
+        .category-block { background: #161616; border: 1px solid #2a2a2a; border-radius: 12px; margin-bottom: 16px; overflow: hidden; }
+        .category-header { background: #1a1a1a; padding: 14px 20px; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid #2a2a2a; }
+        .category-header:hover { background: #222; }
+        .task-item { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s; }
+        .task-item:hover { border-color: #444; }
+        .task-item.high { border-left: 4px solid #fff; }
+        .task-item.medium { border-left: 4px solid #666; }
+        .task-item.low { border-left: 4px solid #333; }
+        .checkbox { width: 22px; height: 22px; border: 2px solid #444; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .checkbox.checked { background: #fff; border-color: #fff; }
+        .checkbox.checked::after { content: '✓'; color: #000; font-size: 14px; }
+        .completed-task { text-decoration: line-through; color: #555; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .modal-content { background: #1a1a1a; border: 1px solid #333; border-radius: 16px; padding: 24px; width: 90%; max-width: 480px; max-height: 85vh; overflow-y: auto; }
+        .global-note { background: #1c1c1c; border: 1px solid #333; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .global-note.warning { border-left: 4px solid #f59e0b; }
+        .global-note.important { border-left: 4px solid #ef4444; }
+        .global-note.info { border-left: 4px solid #3b82f6; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px; color: #666; font-weight: 500; border-bottom: 1px solid #2a2a2a; }
+        td { padding: 12px; border-bottom: 1px solid #1f1f1f; color: #ccc; }
+        tr:hover td { background: #1a1a1a; }
+        .badge { padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 顶部导航 -->
+        <header style="background: #111; border-bottom: 1px solid #2a2a2a; padding: 16px 24px; position: sticky; top: 0; z-index: 50;">
+            <div style="max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+                <h1 style="font-size: 1.4rem; font-weight: 600; color: #fff;">📋 工作需求管理</h1>
+                <nav style="display: flex; gap: 8px;">
+                    <div class="nav-tab" :class="{active: currentView === 'today'}" @click="currentView = 'today'">今日任务</div>
+                    <div class="nav-tab" :class="{active: currentView === 'all'}" @click="currentView = 'all'">全部需求</div>
+                    <div class="nav-tab" :class="{active: currentView === 'markdown'}" @click="currentView = 'markdown'">Markdown 管理</div>
+                    <div class="nav-tab" :class="{active: currentView === 'monthly'}" @click="currentView = 'monthly'">月报</div>
+                    <div class="nav-tab" :class="{active: currentView === 'stats'}" @click="currentView = 'stats'">统计</div>
+                </nav>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-dark" @click="showGlobalNoteModal = true">📌 全局注意</button>
+                    <button class="btn btn-white" @click="openAddModal()">+ 新建需求</button>
+                </div>
+            </div>
+        </header>
+
+        <main style="max-width: 1400px; margin: 0 auto; padding: 24px;">
+            <!-- 今日任务视图 -->
+            <div v-if="currentView === 'today'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600;">今日任务 - {{ selectedDate }}</h2>
+                    <input type="date" v-model="selectedDate" class="input-field" style="width: auto;">
+                </div>
+
+                <!-- 全局注意事项 -->
+                <div v-if="globalNotes.length > 0" class="card" style="padding: 16px; margin-bottom: 20px;">
+                    <h3 style="font-size: 0.9rem; color: #666; margin-bottom: 12px;">📌 全局注意事项</h3>
+                    <div v-for="note in globalNotes" :key="note.id" class="global-note" :class="note.type">
+                        <span>{{ note.content }}</span>
+                    </div>
+                </div>
+
+                <!-- 延单任务（超过预期完成日期但未完成） -->
+                <div v-if="overdueTasks.length > 0" class="card" style="padding: 16px; margin-bottom: 20px; border-color: #ef4444;">
+                    <h3 style="font-size: 0.9rem; color: #ef4444; margin-bottom: 12px;">🚨 延单任务 ({{ overdueTasks.length }})</h3>
+                    <div v-for="task in overdueTasks" :key="task.id" class="task-item" :class="task.priority" style="border-left-color: #ef4444;">
+                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                            <div class="checkbox" :class="{checked: task.completed}" @click="toggleTaskCompletion(task)"></div>
+                            <div style="flex: 1;">
+                                <div :class="{'completed-task': task.completed}">
+                                    <span class="badge" :class="'priority-' + task.priority" style="margin-right: 8px;">{{ task.priority === 'high' ? '高' : task.priority === 'medium' ? '中' : '低' }}</span>
+                                    <strong>{{ task.title }}</strong>
+                                    <span style="color: #666; margin-left: 8px;">[{{ task.category }}]</span>
+                                </div>
+                                <div style="font-size: 0.85rem; color: #ef4444; margin-top: 4px;">
+                                    ⚠️ 已延期 {{ task.overdue_days }} 天 | 预计完成: {{ task.expected_date }}
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-dark" style="padding: 6px 12px; font-size: 0.85rem;" @click="editRequirement(task)">编辑</button>
+                    </div>
+                </div>
+
+                <!-- 处理中任务（根据日期范围自动显示） -->
+                <div class="card" style="padding: 16px;">
+                    <h3 style="font-size: 0.9rem; color: #666; margin-bottom: 12px;">⏳ 当前处理中的需求 ({{ periodTasks.length }})</h3>
+                    <div v-if="periodTasks.length === 0" style="text-align: center; padding: 40px; color: #555;">
+                        当日没有处理中的需求
+                    </div>
+                    <div v-for="task in periodTasks" :key="task.id" class="task-item" :class="task.priority">
+                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                            <div class="checkbox" :class="{checked: task.completed}" @click="toggleTaskCompletion(task)"></div>
+                            <div style="flex: 1;">
+                                <div :class="{'completed-task': task.completed}">
+                                    <span class="badge" :class="'priority-' + task.priority" style="margin-right: 8px;">{{ task.priority === 'high' ? '高' : task.priority === 'medium' ? '中' : '低' }}</span>
+                                    <strong>{{ task.title }}</strong>
+                                    <span style="color: #666; margin-left: 8px;">[{{ task.category }}]</span>
+                                </div>
+                                <div style="font-size: 0.85rem; color: #555; margin-top: 4px;">
+                                    处理期间: {{ task.work_period || '待定' }} | 预计完成: {{ task.expected_date }}
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-dark" style="padding: 6px 12px; font-size: 0.85rem;" @click="editRequirement(task)">编辑</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 全部需求视图 -->
+            <div v-if="currentView === 'all'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600;">全部需求</h2>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <select v-model="filterStatus" class="input-field" style="width: auto;">
+                            <option value="">全部状态</option>
+                            <option value="pending">待处理</option>
+                            <option value="in_progress">进行中</option>
+                            <option value="completed">已完成</option>
+                            <option value="cancelled">已取消</option>
+                        </select>
+                        <select v-model="filterPriority" class="input-field" style="width: auto;">
+                            <option value="">全部优先级</option>
+                            <option value="high">高</option>
+                            <option value="medium">中</option>
+                            <option value="low">低</option>
+                        </select>
+                        <input type="text" v-model="searchKeyword" placeholder="搜索..." class="input-field" style="width: 200px;">
+                    </div>
+                </div>
+
+                <!-- 分类展示 -->
+                <div v-for="(tasks, category) in groupedRequirements" :key="category" class="category-block">
+                    <div class="category-header" @click="toggleCategory(category)">
+                        <span style="font-weight: 600;">{{ category }} ({{ tasks.length }})</span>
+                        <span>{{ expandedCategories[category] ? '▼' : '▶' }}</span>
+                    </div>
+                    <div v-if="expandedCategories[category]" style="padding: 12px;">
+                        <div v-for="req in tasks" :key="req.id" class="task-item" :class="req.priority">
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <span class="badge" :class="'priority-' + req.priority">{{ req.priority === 'high' ? '高' : req.priority === 'medium' ? '中' : '低' }}</span>
+                                    <span class="badge" :class="'status-' + req.status">{{ getStatusText(req.status) }}</span>
+                                    <strong>{{ req.title }}</strong>
+                                </div>
+                                <div style="font-size: 0.85rem; color: #666;">
+                                    创建: {{ req.created_date }} | 处理: {{ req.work_period || '待定' }} | 预计: {{ req.expected_date }} | 完成: {{ req.completion_date }}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 6px;">
+                                <button class="btn btn-dark" style="padding: 6px 12px;" @click="editRequirement(req)">编辑</button>
+                                <button class="btn" style="padding: 6px 12px; background: #2a2a2a; color: #888;" @click="deleteRequirement(req.id)">删除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Markdown 预览视图 -->
+            <div v-if="currentView === 'markdown'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600;">📄 Markdown 预览</h2>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <select v-model="mdViewType" class="input-field" style="width: auto;">
+                            <option value="daily">每日任务</option>
+                            <option value="requirements">需求列表</option>
+                        </select>
+                        <input v-if="mdViewType === 'daily'" type="date" v-model="mdViewDate" class="input-field" style="width: auto;">
+                        <button class="btn btn-dark" @click="copyMarkdown()">📋 复制</button>
+                        <button class="btn btn-dark" @click="downloadMarkdown()">⬇️ 下载</button>
+                        <button v-if="mdViewType === 'daily'" class="btn btn-white" @click="saveMarkdownToDisk()">💾 保存到磁盘</button>
+                    </div>
+                </div>
+                
+                <!-- Markdown 渲染预览 -->
+                <div class="card" style="padding: 24px;">
+                    <div style="font-family: 'Consolas', 'Monaco', monospace; line-height: 1.8; white-space: pre-wrap;" v-html="markdownPreviewHtml"></div>
+                </div>
+                
+                <!-- 原始 Markdown 源码 -->
+                <div class="card" style="padding: 20px; margin-top: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h3 style="font-size: 0.9rem; color: #666;">📝 Markdown 源码</h3>
+                        <span style="font-size: 0.8rem; color: #555;">{{ mdViewType === 'daily' ? mdViewDate : 'requirements' }}.md</span>
+                    </div>
+                    <pre style="background: #0d0d0d; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.9rem; color: #aaa; margin: 0;">{{ markdownSource }}</pre>
+                </div>
+            </div>
+
+            <!-- 月报视图 -->
+            <div v-if="currentView === 'monthly'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600;">📊 月度报告</h2>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <select v-model="selectedYear" class="input-field" style="width: auto;">
+                            <option v-for="y in yearOptions" :key="y" :value="y">{{ y }} 年</option>
+                        </select>
+                        <select v-model="selectedMonth" class="input-field" style="width: auto;">
+                            <option v-for="m in 12" :key="m" :value="m">{{ m }} 月</option>
+                        </select>
+                        <button class="btn btn-white" @click="generateMonthlyReport()">📈 生成月报</button>
+                    </div>
+                </div>
+
+                <!-- 月报统计卡片 -->
+                <div v-if="monthlyReport" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="stat-card">
+                        <div class="number">{{ monthlyReport.working_days }}</div>
+                        <div class="label">工作天数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">{{ monthlyReport.total_tasks }}</div>
+                        <div class="label">总任务数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">{{ monthlyReport.completed_tasks }}</div>
+                        <div class="label">已完成</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">{{ monthlyReport.completion_rate }}%</div>
+                        <div class="label">完成率</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">{{ monthlyReport.high_completion_rate }}%</div>
+                        <div class="label">高优先级完成率</div>
+                    </div>
+                </div>
+
+                <!-- 每日统计表格 -->
+                <div v-if="monthlyReport && monthlyReport.daily_stats.length > 0" class="card" style="padding: 20px;">
+                    <h3 style="font-size: 1rem; color: #888; margin-bottom: 16px;">每日完成情况</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>日期</th>
+                                <th>总任务</th>
+                                <th>已完成</th>
+                                <th>完成率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="stat in monthlyReport.daily_stats" :key="stat.date">
+                                <td>{{ stat.date }}</td>
+                                <td>{{ stat.total }}</td>
+                                <td>{{ stat.completed }}</td>
+                                <td>
+                                    <span :style="{color: stat.completion_rate >= 80 ? '#4ade80' : stat.completion_rate >= 50 ? '#fbbf24' : '#f87171'}">
+                                        {{ stat.completion_rate }}%
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div v-else class="card" style="padding: 40px; text-align: center; color: #555;">
+                    请选择年月并点击"生成月报"按钮
+                </div>
+            </div>
+
+            <!-- 统计报表视图 -->
+            <div v-if="currentView === 'stats'">
+                <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 20px;">统计报表</h2>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div class="stat-card">
+                        <div class="number">{{ stats.total }}</div>
+                        <div class="label">总需求数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">{{ stats.completed }}</div>
+                        <div class="label">已完成</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">{{ stats.inProgress }}</div>
+                        <div class="label">进行中</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">{{ stats.pending }}</div>
+                        <div class="label">待处理</div>
+                    </div>
+                </div>
+                <div class="card" style="padding: 20px;">
+                    <canvas id="statsChart" height="100"></canvas>
+                </div>
+            </div>
+        </main>
+
+        <!-- 添加/编辑需求弹窗 -->
+        <div v-if="showRequirementModal" class="modal-overlay" @click.self="showRequirementModal = false">
+            <div class="modal-content">
+                <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 20px;">{{ editingRequirement ? '编辑需求' : '新建需求' }}</h3>
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div>
+                        <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">分类</label>
+                        <input v-model="reqForm.category" class="input-field" placeholder="如：项目A、日常维护">
+                    </div>
+                    <div>
+                        <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">标题</label>
+                        <input v-model="reqForm.title" class="input-field" placeholder="需求标题">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div>
+                            <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">优先级</label>
+                            <select v-model="reqForm.priority" class="input-field">
+                                <option value="high">高</option>
+                                <option value="medium">中</option>
+                                <option value="low">低</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">状态</label>
+                            <select v-model="reqForm.status" class="input-field">
+                                <option value="pending">待处理</option>
+                                <option value="in_progress">进行中</option>
+                                <option value="completed">已完成</option>
+                                <option value="cancelled">已取消</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div>
+                            <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">处理开始日期</label>
+                            <input type="date" v-model="reqForm.work_start" class="input-field">
+                        </div>
+                        <div>
+                            <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">处理结束日期</label>
+                            <input type="date" v-model="reqForm.work_end" class="input-field">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display: block; color: #888; margin-bottom: 6px; font-size: 0.9rem;">预计完成日期</label>
+                        <input type="date" v-model="reqForm.expected_date" class="input-field">
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+                    <button class="btn btn-dark" @click="showRequirementModal = false">取消</button>
+                    <button class="btn btn-white" @click="saveRequirement()">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 添加今日任务弹窗 -->
+        <div v-if="showAddTodayTask" class="modal-overlay" @click.self="showAddTodayTask = false">
+            <div class="modal-content">
+                <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 20px;">添加今日任务</h3>
+                <input v-model="newTodayTask" class="input-field" placeholder="任务内容" @keyup.enter="addTodayTask()">
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-dark" @click="showAddTodayTask = false">取消</button>
+                    <button class="btn btn-white" @click="addTodayTask()">添加</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 全局注意事项弹窗 -->
+        <div v-if="showGlobalNoteModal" class="modal-overlay" @click.self="showGlobalNoteModal = false">
+            <div class="modal-content">
+                <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 20px;">📌 全局注意事项</h3>
+                <div v-for="note in globalNotes" :key="note.id" class="global-note" :class="note.type">
+                    <span>{{ note.content }}</span>
+                    <button @click="deleteGlobalNote(note.id)" style="background: none; border: none; color: #666; cursor: pointer;">✕</button>
+                </div>
+                <div style="margin-top: 16px;">
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <select v-model="newNoteType" class="input-field" style="width: 100px;">
+                            <option value="info">普通</option>
+                            <option value="warning">警告</option>
+                            <option value="important">重要</option>
+                        </select>
+                        <input v-model="newNoteContent" class="input-field" placeholder="添加注意事项..." @keyup.enter="addGlobalNote()">
+                    </div>
+                    <button class="btn btn-white" style="width: 100%;" @click="addGlobalNote()">+ 添加</button>
+                </div>
+                <div style="text-align: right; margin-top: 16px;">
+                    <button class="btn btn-dark" @click="showGlobalNoteModal = false">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    const { createApp, ref, computed, watch, onMounted, nextTick } = Vue;
+    
+    createApp({
+        setup() {
+            const currentView = ref('today');
+            const selectedDate = ref(new Date().toISOString().split('T')[0]);
+            const requirements = ref([]);
+            const todayTasks = ref([]);
+            const periodTasks = ref([]);
+            const overdueTasks = ref([]);  // 延单任务
+            const globalNotes = ref([]);
+            const expandedCategories = ref({});
+            
+            // 筛选
+            const filterStatus = ref('');
+            const filterPriority = ref('');
+            const searchKeyword = ref('');
+            
+            // 弹窗
+            const showRequirementModal = ref(false);
+            const showAddTodayTask = ref(false);
+            const showGlobalNoteModal = ref(false);
+            const editingRequirement = ref(null);
+            
+            // 表单
+            const reqForm = ref({ category: '', title: '', priority: 'medium', status: 'pending', work_start: '', work_end: '', expected_date: '' });
+            const newTodayTask = ref('');
+            const newNoteType = ref('info');
+            const newNoteContent = ref('');
+            
+            // Markdown 预览
+            const mdViewType = ref('daily');
+            const mdViewDate = ref(new Date().toISOString().split('T')[0]);
+            const markdownSource = ref('');
+            
+            // 月报相关
+            const currentYear = new Date().getFullYear();
+            const selectedYear = ref(currentYear);
+            const selectedMonth = ref(new Date().getMonth() + 1);
+            const yearOptions = computed(() => {
+                const years = [];
+                for (let y = currentYear - 2; y <= currentYear + 1; y++) {
+                    years.push(y);
+                }
+                return years;
+            });
+            const monthlyReport = ref(null);
+            
+            // 统计数据
+            const stats = computed(() => {
+                const total = requirements.value.length;
+                const completed = requirements.value.filter(r => r.status === 'completed').length;
+                const inProgress = requirements.value.filter(r => r.status === 'in_progress').length;
+                const pending = requirements.value.filter(r => r.status === 'pending').length;
+                return { total, completed, inProgress, pending };
+            });
+            
+            // 分组需求
+            const groupedRequirements = computed(() => {
+                let filtered = requirements.value;
+                if (filterStatus.value) filtered = filtered.filter(r => r.status === filterStatus.value);
+                if (filterPriority.value) filtered = filtered.filter(r => r.priority === filterPriority.value);
+                if (searchKeyword.value) {
+                    const kw = searchKeyword.value.toLowerCase();
+                    filtered = filtered.filter(r => r.title.toLowerCase().includes(kw) || r.category.toLowerCase().includes(kw));
+                }
+                const groups = {};
+                filtered.forEach(r => {
+                    const cat = r.category || '未分类';
+                    if (!groups[cat]) groups[cat] = [];
+                    groups[cat].push(r);
+                });
+                return groups;
+            });
+            
+            // API 调用
+            async function loadRequirements() {
+                try {
+                    const res = await axios.get('/api/requirements');
+                    requirements.value = res.data;
+                    Object.keys(groupedRequirements.value).forEach(cat => {
+                        if (expandedCategories.value[cat] === undefined) expandedCategories.value[cat] = true;
+                    });
+                } catch (e) { console.error('加载需求失败', e); }
+            }
+            
+            async function loadTodayTasks() {
+                try {
+                    const res = await axios.get(`/api/daily/${selectedDate.value}`);
+                    todayTasks.value = res.data.tasks || [];
+                } catch (e) { todayTasks.value = []; }
+            }
+            
+            async function loadPeriodTasks() {
+                try {
+                    const res = await axios.get(`/api/requirements/in-period/${selectedDate.value}`);
+                    periodTasks.value = res.data;
+                } catch (e) { periodTasks.value = []; }
+            }
+            
+            // 加载延单任务（超过预期完成日期但未完成的需求）
+            async function loadOverdueTasks() {
+                try {
+                    const res = await axios.get(`/api/requirements/overdue/${selectedDate.value}`);
+                    overdueTasks.value = res.data;
+                } catch (e) { overdueTasks.value = []; }
+            }
+            
+            async function loadGlobalNotes() {
+                try {
+                    const res = await axios.get('/api/global-notes');
+                    globalNotes.value = res.data;
+                } catch (e) { globalNotes.value = []; }
+            }
+            
+            // 需求操作
+            function openAddModal() {
+                editingRequirement.value = null;
+                reqForm.value = { category: '', title: '', priority: 'medium', status: 'pending', work_start: '', work_end: '', expected_date: '' };
+                showRequirementModal.value = true;
+            }
+            
+            function editRequirement(req) {
+                editingRequirement.value = req;
+                let ws = '', we = '';
+                if (req.work_period && req.work_period !== '待定' && req.work_period.includes('~')) {
+                    [ws, we] = req.work_period.split('~');
+                }
+                reqForm.value = { category: req.category, title: req.title, priority: req.priority, status: req.status, work_start: ws, work_end: we, expected_date: req.expected_date === '待定' ? '' : req.expected_date };
+                showRequirementModal.value = true;
+            }
+            
+            async function saveRequirement() {
+                const data = {
+                    category: reqForm.value.category || '未分类',
+                    title: reqForm.value.title,
+                    priority: reqForm.value.priority,
+                    status: reqForm.value.status,
+                    work_period: (reqForm.value.work_start && reqForm.value.work_end) ? `${reqForm.value.work_start}~${reqForm.value.work_end}` : '待定',
+                    expected_date: reqForm.value.expected_date || '待定'
+                };
+                try {
+                    if (editingRequirement.value) {
+                        await axios.put(`/api/requirements/${editingRequirement.value.id}`, data);
+                    } else {
+                        await axios.post('/api/requirements', data);
+                    }
+                    showRequirementModal.value = false;
+                    loadRequirements();
+                    loadPeriodTasks();
+                } catch (e) { alert('保存失败'); }
+            }
+            
+            async function deleteRequirement(id) {
+                if (!confirm('确定删除此需求？')) return;
+                try {
+                    await axios.delete(`/api/requirements/${id}`);
+                    loadRequirements();
+                    loadPeriodTasks();
+                } catch (e) { alert('删除失败'); }
+            }
+            
+            async function toggleTaskCompletion(task) {
+                const newStatus = task.status === 'completed' ? 'in_progress' : 'completed';
+                try {
+                    await axios.put(`/api/requirements/${task.id}`, { ...task, status: newStatus, completion_date: newStatus === 'completed' ? new Date().toISOString().split('T')[0] : '未完成' });
+                    loadRequirements();
+                    loadPeriodTasks();
+                } catch (e) { alert('更新失败'); }
+            }
+            
+            // 今日任务
+            async function addTodayTask() {
+                if (!newTodayTask.value.trim()) return;
+                const task = { id: Date.now().toString(), content: newTodayTask.value, completed: false };
+                todayTasks.value.push(task);
+                await saveTodayTasks();
+                newTodayTask.value = '';
+                showAddTodayTask.value = false;
+            }
+            
+            async function toggleTodayTask(task) {
+                task.completed = !task.completed;
+                await saveTodayTasks();
+            }
+            
+            async function deleteTodayTask(id) {
+                todayTasks.value = todayTasks.value.filter(t => t.id !== id);
+                await saveTodayTasks();
+            }
+            
+            async function saveTodayTasks() {
+                try {
+                    await axios.post(`/api/daily/${selectedDate.value}`, { tasks: todayTasks.value });
+                } catch (e) { console.error('保存失败'); }
+            }
+            
+            // 全局注意
+            async function addGlobalNote() {
+                if (!newNoteContent.value.trim()) return;
+                const note = { id: Date.now().toString(), type: newNoteType.value, content: newNoteContent.value };
+                globalNotes.value.push(note);
+                await saveGlobalNotes();
+                newNoteContent.value = '';
+            }
+            
+            async function deleteGlobalNote(id) {
+                globalNotes.value = globalNotes.value.filter(n => n.id !== id);
+                await saveGlobalNotes();
+            }
+            
+            async function saveGlobalNotes() {
+                try {
+                    await axios.post('/api/global-notes', globalNotes.value);
+                } catch (e) { console.error('保存失败'); }
+            }
+            
+            function toggleCategory(cat) {
+                expandedCategories.value[cat] = !expandedCategories.value[cat];
+            }
+            
+            function getStatusText(status) {
+                const map = { pending: '待处理', in_progress: '进行中', completed: '已完成', cancelled: '已取消' };
+                return map[status] || status;
+            }
+            
+            // Markdown 预览生成 - 参照 2026_02_25.md 格式
+            const markdownPreviewHtml = computed(() => {
+                const md = markdownSource.value;
+                if (!md) return '<span style="color: #555;">暂无内容</span>';
+                
+                // 简单的 Markdown 渲染
+                let html = md
+                    .replace(/^### (.+)$/gm, '<h3 style="color: #fff; font-size: 1.3rem; margin: 20px 0 10px; border-bottom: 1px solid #333; padding-bottom: 6px;">$1</h3>')
+                    .replace(/^## (.+)$/gm, '<h2 style="color: #fff; font-size: 1.5rem; margin: 24px 0 12px; border-bottom: 1px solid #444; padding-bottom: 8px;">$1</h2>')
+                    .replace(/^# (.+)$/gm, '<h1 style="color: #fff; font-size: 1.8rem; margin: 28px 0 14px;">$1</h1>')
+                    .replace(/^\* (.+)$/gm, '<div style="margin-left: 16px; color: #f59e0b;">• $1</div>')
+                    .replace(/^- \[x\] (.+)$/gm, '<div style="margin-left: 16px; color: #555; text-decoration: line-through;">☑ $1</div>')
+                    .replace(/^- \[ \] (.+)$/gm, '<div style="margin-left: 16px; color: #ccc;">☐ $1</div>')
+                    .replace(/\*\*(.+?)\*\*/g, '<strong style="color: #fff;">$1</strong>')
+                    .replace(/\n\n/g, '<br><br>')
+                    .replace(/\n/g, '<br>');
+                return html;
+            });
+            
+            async function loadMarkdownPreview() {
+                try {
+                    const res = await axios.get(`/api/markdown-preview/${mdViewType.value}/${mdViewDate.value}`);
+                    markdownSource.value = res.data.content;
+                } catch (e) { 
+                    markdownSource.value = '加载失败'; 
+                }
+            }
+            
+            function copyMarkdown() {
+                navigator.clipboard.writeText(markdownSource.value).then(() => {
+                    alert('已复制到剪贴板！');
+                }).catch(() => {
+                    alert('复制失败，请手动复制');
+                });
+            }
+            
+            function downloadMarkdown() {
+                const filename = mdViewType.value === 'daily' ? `${mdViewDate.value}.md` : 'requirements.md';
+                const blob = new Blob([markdownSource.value], { type: 'text/markdown;charset=utf-8' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.click();
+            }
+            
+            // 月报功能
+            async function generateMonthlyReport() {
+                try {
+                    const res = await axios.get(`/api/monthly/${selectedYear.value}/${selectedMonth.value}`);
+                    monthlyReport.value = res.data;
+                } catch (e) { 
+                    console.error('生成月报失败', e);
+                    alert('生成月报失败');
+                }
+            }
+            
+            // 保存 Markdown 到磁盘
+            async function saveMarkdownToDisk() {
+                if (mdViewType.value === 'daily') {
+                    try {
+                        const res = await axios.post(`/api/save-daily-markdown/${mdViewDate.value}`);
+                        if (res.data.success) {
+                            alert(`Markdown 已保存到: ${res.data.file_path}`);
+                        }
+                    } catch (e) {
+                        alert('保存失败');
+                    }
+                }
+            }
+            
+            let chartInstance = null;
+            function renderChart() {
+                nextTick(() => {
+                    const ctx = document.getElementById('statsChart');
+                    if (!ctx) return;
+                    if (chartInstance) chartInstance.destroy();
+                    chartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['待处理', '进行中', '已完成', '已取消'],
+                            datasets: [{
+                                label: '需求数量',
+                                data: [
+                                    requirements.value.filter(r => r.status === 'pending').length,
+                                    requirements.value.filter(r => r.status === 'in_progress').length,
+                                    requirements.value.filter(r => r.status === 'completed').length,
+                                    requirements.value.filter(r => r.status === 'cancelled').length
+                                ],
+                                backgroundColor: ['#444', '#666', '#fff', '#222'],
+                                borderColor: ['#555', '#777', '#fff', '#333'],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { labels: { color: '#888' } } },
+                            scales: {
+                                y: { beginAtZero: true, ticks: { color: '#666' }, grid: { color: '#222' } },
+                                x: { ticks: { color: '#888' }, grid: { color: '#222' } }
+                            }
+                        }
+                    });
+                });
+            }
+            
+            watch(selectedDate, () => { loadTodayTasks(); loadPeriodTasks(); loadOverdueTasks(); });
+            watch(currentView, (v) => { 
+                if (v === 'stats') renderChart(); 
+                if (v === 'markdown') loadMarkdownPreview();
+            });
+            watch(requirements, () => { if (currentView.value === 'stats') renderChart(); }, { deep: true });
+            watch(mdViewType, () => { loadMarkdownPreview(); });
+            watch(mdViewDate, () => { if (mdViewType.value === 'daily') loadMarkdownPreview(); });
+            
+            onMounted(() => {
+                loadRequirements();
+                loadTodayTasks();
+                loadPeriodTasks();
+                loadOverdueTasks();
+                loadGlobalNotes();
+            });
+            
+            return {
+                currentView, selectedDate, requirements, todayTasks, periodTasks, overdueTasks, globalNotes,
+                expandedCategories, filterStatus, filterPriority, searchKeyword,
+                showRequirementModal, showAddTodayTask, showGlobalNoteModal, editingRequirement,
+                reqForm, newTodayTask, newNoteType, newNoteContent, stats, groupedRequirements,
+                mdViewType, mdViewDate, markdownSource, markdownPreviewHtml,
+                selectedYear, selectedMonth, yearOptions, monthlyReport,
+                openAddModal, editRequirement, saveRequirement, deleteRequirement, toggleTaskCompletion,
+                addTodayTask, toggleTodayTask, deleteTodayTask, addGlobalNote, deleteGlobalNote,
+                toggleCategory, getStatusText, loadMarkdownPreview, copyMarkdown, downloadMarkdown,
+                generateMonthlyReport, saveMarkdownToDisk
+            };
+        }
+    }).mount('#app');
+    </script>
+</body>
+</html>
